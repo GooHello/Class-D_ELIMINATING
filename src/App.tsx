@@ -138,6 +138,7 @@ function App() {
   const [showEndingA, setShowEndingA] = useState(false);
   const [endingLines, setEndingLines] = useState<string[]>([]);
   const [showEndingBtn, setShowEndingBtn] = useState(false);
+  const [phaseOverlay, setPhaseOverlay] = useState<string | null>(null); // Phase转换全屏overlay
   const [endingBtnText, setEndingBtnText] = useState('[接受重新分类]');
   const [currentEndingId, setCurrentEndingId] = useState<string | null>(null); // 当前结局ID
   const [showParallelEndings, setShowParallelEndings] = useState(false); // 平行结局列表
@@ -854,8 +855,10 @@ function App() {
       const nextPhase = getPhase(nextLevel);
       const notice = getPhaseTransitionNotice(nextPhase);
       if (notice) {
-        setHesitationNotice(notice);
-        setTimeout(() => setHesitationNotice(null), 5000);
+        // 全屏overlay仪式感 + 写入战报
+        setPhaseOverlay(notice);
+        addLogEntry({ type: 'system' as any, scpName: '⚙ 系统', detail: notice });
+        setTimeout(() => setPhaseOverlay(null), 4000);
       }
       // Ethics review already handled in handleLevelComplete — no duplicate trigger here
     }
@@ -2136,6 +2139,13 @@ function App() {
       )}
 
       {/* ===== ENDING SCREENS ===== */}
+      {/* Phase Transition Overlay */}
+      {phaseOverlay && (
+        <div className="phase-overlay">
+          <div className="phase-overlay-text">{phaseOverlay}</div>
+        </div>
+      )}
+
       {showGlitch && <div className="glitch-overlay" />}
 
       {showEndingA && (

@@ -2,7 +2,7 @@ import type { PieceColor } from '../data/missions';
 
 export type SpecialType = 'none' | 'striped_h' | 'striped_v' | 'bomb' | 'rainbow';
 
-export const ROWS = 8;
+export const ROWS = 9;
 export const COLS = 9;
 
 export interface Piece {
