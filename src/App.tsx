@@ -624,7 +624,7 @@ function App() {
 
     // 中途结局检查（延迟一下让报告先显示）
     setTimeout(() => checkMidgameEndings(), 2000);
-  }, [mission, movesLeft, save, updateSave, unlockAchievement, checkMidgameEndings]);
+  }, [mission, movesLeft, save, updateSave, unlockAchievement]);
 
   // Keep ref in sync
   handleLevelCompleteRef.current = handleLevelComplete;
@@ -931,14 +931,16 @@ function App() {
     });
     // 结局I检查：阅读邮件后
     setTimeout(() => checkMidgameEndings(), 500);
-  }, [updateSave, unlockAchievement, checkMidgameEndings]);
+  }, [updateSave, unlockAchievement]);
 
-  // ========== MIDGAME ENDING TRIGGER ==========
-  const triggerMidgameEnding = useCallback((endingId: string) => {
+  // ========== MIDGAME ENDING (use refs to avoid circular dependency) ==========
+  const triggerMidgameEndingRef = useRef<(id: string) => void>(() => {});
+  const checkMidgameEndingsRef = useRef<() => void>(() => {});
+
+  triggerMidgameEndingRef.current = (endingId: string) => {
     const ending = getMidgameEnding(endingId);
     if (!ending) return;
 
-    // 使用和通关结局相同的展示逻辑
     setShowGlitch(true);
     setTimeout(() => {
       setShowGlitch(false);
@@ -953,7 +955,6 @@ function App() {
         '',
       ];
 
-      // 结局D特效
       if (ending.specialEffect === 'ui-dissolve') {
         setTimeout(() => setUiDissolve(1), 2000);
         setTimeout(() => setUiDissolve(2), 5000);
@@ -975,39 +976,36 @@ function App() {
 
       updateSave(prev => ({ ...prev, endingASeen: true }));
     }, 1500);
-  }, [save, updateSave]);
+  };
 
-  // ========== MIDGAME ENDING CHECKS ==========
-  const checkMidgameEndings = useCallback(() => {
-    // 已经在展示结局了就不检查
+  checkMidgameEndingsRef.current = () => {
     if (showEndingA || showGlitch) return;
 
-    // 结局F：犹豫次数 ≥ 20
     if (save.hesitationCount >= 20) {
-      triggerMidgameEnding('F');
+      triggerMidgameEndingRef.current('F');
       return;
     }
 
-    // 结局G：库存补充 ≥ 5 次且库存为 0
     if (save.purchaseCount >= 5 && save.inventoryCount <= 0) {
-      triggerMidgameEnding('G');
+      triggerMidgameEndingRef.current('G');
       return;
     }
 
-    // 结局H：连续 5 关 S 评级
     if (consecutiveSRatings >= 5) {
-      triggerMidgameEnding('H');
+      triggerMidgameEndingRef.current('H');
       return;
     }
 
-    // 结局I：所有已解锁邮件全读完 + 犹豫 ≥ 10
     const availableEmails = emails.filter(e => e.triggerLevel <= save.currentLevel);
     const allRead = availableEmails.length > 0 && availableEmails.every(e => save.readEmails.includes(e.id));
     if (allRead && save.hesitationCount >= 10 && save.currentLevel >= 10) {
-      triggerMidgameEnding('I');
+      triggerMidgameEndingRef.current('I');
       return;
     }
-  }, [save, showEndingA, showGlitch, consecutiveSRatings, triggerMidgameEnding]);
+  };
+
+  const checkMidgameEndings = () => checkMidgameEndingsRef.current();
+  const triggerMidgameEnding = (id: string) => triggerMidgameEndingRef.current(id);
 
   // ========== ETHICS REVIEW HANDLERS ==========
   const handleEthicsOption = useCallback((optionIndex?: number) => {
