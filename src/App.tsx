@@ -122,6 +122,15 @@ function App() {
     return new Set(mission.bonusColors || []);
   }, [mission]);
 
+  // ========== DEPLOYMENT ALLOCATION (人员调拨) ==========
+  const [showAllocation, setShowAllocation] = useState(true); // 每关开始前显示
+  const [allocatedDeploy, setAllocatedDeploy] = useState(0); // 玩家分配的人数
+  const [levelDeaths, setLevelDeaths] = useState(0); // 本关累计死亡
+  const [levelSurvived, setLevelSurvived] = useState(0); // 本关累计存活回收
+  const [levelMaxCombo, setLevelMaxCombo] = useState(0); // 本关最大连锁
+  const [levelSkillsUsed, setLevelSkillsUsed] = useState(0); // 本关技能使用次数
+  const [levelColorCounts, setLevelColorCounts] = useState<Record<string, number>>({}); // 本关各色消除总数
+
   // ========== ENDING STATE ==========
   const [showGlitch, setShowGlitch] = useState(false);
   const [showEndingA, setShowEndingA] = useState(false);
@@ -431,20 +440,38 @@ function App() {
         }
       }
 
-      // Update consumed count & inventory
+      // ========== 新库存逻辑：只有死亡扣库存，存活返还 ==========
       const newConsumed = consumed + totalRemoved;
       setLevelConsumed(newConsumed);
+
+      // 追踪本关死亡/存活
+      setLevelDeaths(prev => prev + dead.length);
+      setLevelSurvived(prev => prev + survivors.length);
+
+      // 追踪本关各色消除数（用于副目标）
+      setLevelColorCounts(prev => {
+        const updated = { ...prev };
+        for (const [color, count] of Object.entries(colorCounts)) {
+          updated[color] = (updated[color] || 0) + count;
+        }
+        return updated;
+      });
+
+      // 追踪最大连锁
+      if (newCombo > levelMaxCombo) setLevelMaxCombo(newCombo);
+
       updateSave(prev => {
-        const newTotal = prev.totalConsumed + totalRemoved;
-        const costMultiplied = totalRemoved * extraMovesCostMultiplier;
-        const newInventory = prev.inventoryCount - costMultiplied;
-        const newDaily = prev.dailyConsumed + totalRemoved;
+        // 死亡人数从库存中扣除（已经预扣了分配量，存活的要返还）
+        const newInventory = prev.inventoryCount + survivors.length; // 存活者返回库存
+        const netDead = dead.length;
+        const newTotal = prev.totalConsumed + netDead; // totalConsumed 只计死亡
+        const newDaily = prev.dailyConsumed + netDead;
 
         if (newTotal >= 100) unlockAchievement('hundred');
         if (newTotal >= 1000) unlockAchievement('thousand');
         if (newTotal >= 10000) unlockAchievement('ten_thousand');
 
-        if (newInventory <= 500 && prev.inventoryCount > 500) {
+        if (newInventory <= 200 && prev.inventoryCount > 200) {
           setTimeout(() => setShowPurchase(true), 500);
         }
 
@@ -456,7 +483,7 @@ function App() {
           totalConsumed: newTotal,
           inventoryCount: Math.max(0, newInventory),
           dailyConsumed: newDaily,
-          weeklyConsumed: prev.weeklyConsumed + totalRemoved,
+          weeklyConsumed: prev.weeklyConsumed + netDead,
           humanityScore: Math.max(0, prev.humanityScore - humanityDrain),
         };
       });
@@ -523,7 +550,7 @@ function App() {
 
   // ========== HANDLE CLICK ==========
   const handlePieceClick = useCallback((row: number, col: number) => {
-    if (isAnimating || showReport || showEthics || showEndingA || showFailed) return;
+    if (isAnimating || showReport || showEthics || showEndingA || showFailed || showAllocation) return;
 
     lastMoveTime.current = Date.now();
     const piece = board[row][col];
@@ -589,19 +616,54 @@ function App() {
       });
     }
 
-    // Calculate rating
-    const usedMoves = mission.maxMoves - movesLeft;
-    const efficiency = usedMoves / mission.maxMoves;
+    // 返还未使用的步数（人员）回库存
+    if (movesLeft > 0) {
+      updateSave(prev => ({
+        ...prev,
+        inventoryCount: prev.inventoryCount + movesLeft,
+      }));
+    }
+
+    // Calculate rating — 基于折损率而非步数效率
+    const totalDeployed = levelDeaths + levelSurvived;
+    const casualtyRate = totalDeployed > 0 ? levelDeaths / totalDeployed : 0;
     let rating = 'C';
-    if (efficiency <= 0.4) rating = 'S';
-    else if (efficiency <= 0.55) rating = 'A';
-    else if (efficiency <= 0.7) rating = 'B';
-    else if (efficiency <= 0.85) rating = 'C';
+    if (casualtyRate <= 0.2) rating = 'S';
+    else if (casualtyRate <= 0.35) rating = 'A';
+    else if (casualtyRate <= 0.5) rating = 'B';
+    else if (casualtyRate <= 0.7) rating = 'C';
     else rating = 'D';
+
+    // 副目标检查
+    let secondaryComplete = false;
+    const so = mission.secondaryObjective;
+    if (so) {
+      switch (so.type) {
+        case 'min_green':
+          secondaryComplete = (levelColorCounts['green'] || 0) >= so.threshold;
+          break;
+        case 'min_purple':
+          secondaryComplete = (levelColorCounts['purple'] || 0) >= so.threshold;
+          break;
+        case 'max_casualty_rate':
+          secondaryComplete = (casualtyRate * 100) <= so.threshold;
+          break;
+        case 'no_skills':
+          secondaryComplete = levelSkillsUsed === 0;
+          break;
+        case 'min_combo':
+          secondaryComplete = levelMaxCombo >= so.threshold;
+          break;
+        case 'max_moves_used':
+          secondaryComplete = (allocatedDeploy - movesLeft) <= so.threshold;
+          break;
+      }
+    }
 
     updateSave(prev => ({
       ...prev,
-      kpiHistory: [...prev.kpiHistory, { level: prev.currentLevel, consumed, rating }],
+      kpiHistory: [...prev.kpiHistory, { level: prev.currentLevel, consumed: levelDeaths, rating }],
+      humanityScore: Math.max(0, Math.min(150, prev.humanityScore + (secondaryComplete && so ? so.humanityDelta : 0))),
     }));
 
     // 结局H：追踪连续S评级
@@ -629,6 +691,22 @@ function App() {
   // Keep ref in sync
   handleLevelCompleteRef.current = handleLevelComplete;
 
+  // ========== CONFIRM ALLOCATION (人员调拨确认) ==========
+  const confirmAllocation = useCallback(() => {
+    const deploy = Math.max(mission.minDeploy, Math.min(allocatedDeploy, mission.maxDeploy, save.inventoryCount));
+    setMovesLeft(deploy);
+    setAllocatedDeploy(deploy);
+    // 从库存预扣分配量
+    updateSave(prev => ({
+      ...prev,
+      inventoryCount: prev.inventoryCount - deploy,
+    }));
+    setShowAllocation(false);
+    // 创建新棋盘
+    const newBoard = createBoard();
+    setBoard(newBoard);
+  }, [mission, allocatedDeploy, save.inventoryCount, updateSave]);
+
   // ========== CHECK GAME OVER (out of moves) ==========
   useEffect(() => {
     if (movesLeft <= 0 && !isAnimating && !showReport && !showFailed) {
@@ -650,7 +728,6 @@ function App() {
 
     const nextMission = getMission(nextLevel);
     setMission(nextMission);
-    setMovesLeft(nextMission.maxMoves);
     setTotalProgress(0); setGreenBuff(0);
     setLevelConsumed(0);
     setCombo(0);
@@ -659,12 +736,22 @@ function App() {
     setPurgeDebuffColor(null);
     setPurgeDebuffSteps(0);
     setExtraMovesCostMultiplier(1);
+    // Reset level tracking
+    setLevelDeaths(0);
+    setLevelSurvived(0);
+    setLevelMaxCombo(0);
+    setLevelSkillsUsed(0);
+    setLevelColorCounts({});
     setShowReport(false);
     clearProfileCache();
     setBattleLog([]);
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
+
+    // 显示人员调拨单（而非直接开始）
+    setShowAllocation(true);
+    setAllocatedDeploy(nextMission.suggestedDeploy);
 
     // Create new board, maybe with player piece
     let newBoard = createBoard();
@@ -744,6 +831,7 @@ function App() {
     setSkillCooldowns(prev => ({ ...prev, shuffle: 3 }));
     setMovesLeft(prev => Math.max(0, prev - 2));
     setShuffleDebuff(2); // 下2步进度 -30%
+    setLevelSkillsUsed(prev => prev + 1);
     updateSave(prev => ({ ...prev, skillShuffleUsed: prev.skillShuffleUsed + 1 }));
     setHesitationNotice('⚠ 紧急重组：接下来2步进度-30%');
     setTimeout(() => setHesitationNotice(null), 2500);
@@ -775,6 +863,7 @@ function App() {
       const progressGained = calculateWeightedProgress(colorCounts, 0);
       setTotalProgress(prev => prev + progressGained);
       setLevelConsumed(prev => prev + removed.length);
+      setLevelSkillsUsed(prev => prev + 1);
       updateSave(prev => ({ ...prev, totalConsumed: prev.totalConsumed + removed.length, inventoryCount: prev.inventoryCount - removed.length, dailyConsumed: prev.dailyConsumed + removed.length, skillPurgeUsed: prev.skillPurgeUsed + 1 }));
       setRemovingCells(new Set());
       const filled = applyGravity(newBoard as Piece[][]);
@@ -795,6 +884,7 @@ function App() {
     setMovesLeft(prev => prev + 5);
     setExtraMovesCostMultiplier(2); // 追加步库存消耗×2
     setSkillCooldowns(prev => ({ ...prev, extraMoves: 99 })); // once per level
+    setLevelSkillsUsed(prev => prev + 1);
     updateSave(prev => ({ ...prev, skillExtraMovesUsed: prev.skillExtraMovesUsed + 1 }));
     setHesitationNotice('⚠ 加班模式：追加步数期间库存消耗×2');
     setTimeout(() => setHesitationNotice(null), 2500);
@@ -1594,10 +1684,37 @@ function App() {
               <div className="report-line"><span>实验对象：</span><span>{mission.scpSubject}</span></div>
               <div className="report-line"><span>日　　期：</span><span>{new Date().toLocaleDateString('zh-CN')}</span></div>
               <hr className="report-divider" />
-              <div className="report-line"><span>投入单位：</span><span>{levelConsumed}</span></div>
-              <div className="report-line"><span>预计折旧：</span><span>{mission.casualtyEstimate}</span></div>
-              <div className="report-line"><span>步数使用：</span><span>{mission.maxMoves - movesLeft}/{mission.maxMoves}</span></div>
+              <div className="report-line"><span>调拨人数：</span><span>{allocatedDeploy}</span></div>
+              <div className="report-line"><span>实际折损：</span><span style={{color: '#f53f3f'}}>{levelDeaths}</span></div>
+              <div className="report-line"><span>存活回收：</span><span style={{color: '#00b42a'}}>{levelSurvived}</span></div>
+              <div className="report-line"><span>未使用归还：</span><span>{movesLeft}</span></div>
+              <div className="report-line"><span>净消耗：</span><span style={{fontWeight: 700, color: '#f53f3f'}}>{levelDeaths}</span></div>
+              <div className="report-line"><span>折损率：</span><span>{((levelDeaths + levelSurvived) > 0 ? (levelDeaths / (levelDeaths + levelSurvived) * 100).toFixed(1) : '0')}%</span></div>
               <div className="report-conclusion">{mission.rewardText}</div>
+              {mission.secondaryObjective && (
+                <div style={{margin: '8px 0', padding: '6px 10px', borderRadius: 4, background: 'rgba(255,125,0,0.06)', borderLeft: '3px solid #ff7d00'}}>
+                  <div style={{fontSize: 11, color: '#ff7d00'}}>▸ 副目标：{mission.secondaryObjective.description}</div>
+                  <div style={{fontSize: 12, marginTop: 4, fontWeight: 600}}>
+                    {(() => {
+                      const so = mission.secondaryObjective!;
+                      const totalDep = levelDeaths + levelSurvived;
+                      const cr = totalDep > 0 ? levelDeaths / totalDep : 0;
+                      let done = false;
+                      switch (so.type) {
+                        case 'min_green': done = (levelColorCounts['green'] || 0) >= so.threshold; break;
+                        case 'min_purple': done = (levelColorCounts['purple'] || 0) >= so.threshold; break;
+                        case 'max_casualty_rate': done = (cr * 100) <= so.threshold; break;
+                        case 'no_skills': done = levelSkillsUsed === 0; break;
+                        case 'min_combo': done = levelMaxCombo >= so.threshold; break;
+                        case 'max_moves_used': done = (allocatedDeploy - movesLeft) <= so.threshold; break;
+                      }
+                      return done
+                        ? <span style={{color:'#00b42a'}}>✓ 已完成 — {so.resultText}</span>
+                        : <span style={{color:'#86909c'}}>✗ 未完成</span>;
+                    })()}
+                  </div>
+                </div>
+              )}
               <div className="report-rating">
                 {'⭐'.repeat(Math.max(1, Math.min(5, 5 - (['S','A','B','C','D'].indexOf(lastRating) === -1 ? 3 : ['S','A','B','C','D'].indexOf(lastRating)))))}
                 {' '}效率评级：{lastRating === 'S' ? '卓越' : lastRating === 'A' ? '优秀' : lastRating === 'B' ? '良好' : lastRating === 'C' ? '合格' : '待改进'}
@@ -1663,6 +1780,62 @@ function App() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Allocation Modal (人员调拨单) */}
+      {showAllocation && (
+        <div className="modal-overlay">
+          <div className="modal allocation-modal" style={{maxWidth: 480}}>
+            <div className="modal-header">
+              <h3>📋 人员调拨申请单</h3>
+            </div>
+            <div className="modal-body">
+              <div style={{marginBottom: 12, padding: '8px 12px', background: 'rgba(22,93,255,0.06)', borderRadius: 6}}>
+                <div style={{fontSize: 13, color: '#86909c'}}>工单编号</div>
+                <div style={{fontSize: 15, fontWeight: 600}}>{mission.id} — {mission.title}</div>
+                <div style={{fontSize: 12, color: '#86909c', marginTop: 4}}>目标异常：{mission.scpSubject} | 安保等级：{mission.securityLevel}</div>
+              </div>
+
+              {mission.secondaryObjective && (
+                <div style={{marginBottom: 12, padding: '8px 12px', background: 'rgba(255,125,0,0.06)', borderRadius: 6, borderLeft: '3px solid #ff7d00'}}>
+                  <div style={{fontSize: 11, color: '#ff7d00', fontWeight: 600}}>▸ 副目标（可选）</div>
+                  <div style={{fontSize: 13, marginTop: 4}}>{mission.secondaryObjective.description}</div>
+                  <div style={{fontSize: 11, color: '#86909c', marginTop: 2}}>
+                    {mission.secondaryObjective.humanityDelta > 0 ? '🟢' : '🔴'} 完成影响：心理基线 {mission.secondaryObjective.humanityDelta > 0 ? '+' : ''}{mission.secondaryObjective.humanityDelta}
+                  </div>
+                </div>
+              )}
+
+              <div style={{textAlign: 'center', margin: '16px 0'}}>
+                <div style={{fontSize: 12, color: '#86909c', marginBottom: 8}}>
+                  调拨人数 = 可用步数 | 建议：{mission.suggestedDeploy} 人
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12}}>
+                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.max(mission.minDeploy, prev - 5))} style={{padding: '4px 12px'}}>-5</button>
+                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.max(mission.minDeploy, prev - 1))} style={{padding: '4px 8px'}}>-</button>
+                  <div style={{fontSize: 28, fontWeight: 700, minWidth: 60, fontFamily: 'Consolas, monospace'}}>
+                    {allocatedDeploy}
+                  </div>
+                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.min(mission.maxDeploy, save.inventoryCount, prev + 1))} style={{padding: '4px 8px'}}>+</button>
+                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.min(mission.maxDeploy, save.inventoryCount, prev + 5))} style={{padding: '4px 12px'}}>+5</button>
+                </div>
+                <div style={{fontSize: 11, color: '#86909c', marginTop: 6}}>
+                  范围：{mission.minDeploy} ~ {Math.min(mission.maxDeploy, save.inventoryCount)} 人 | 库存剩余：{save.inventoryCount.toLocaleString()}
+                </div>
+              </div>
+
+              <div style={{fontSize: 11, color: '#4e5969', padding: '6px 0', borderTop: '1px solid #2e303a'}}>
+                ⚠ 分配的人员将从库存中预扣。存活人员将在任务中实时返还库存。未使用人员在任务结束后全数归还。<br/>
+                ⚠ 任务失败时，已折损人员不予返还。
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={confirmAllocation} disabled={allocatedDeploy < mission.minDeploy || allocatedDeploy > save.inventoryCount}>
+                批准调拨 ({allocatedDeploy} 人)
+              </button>
             </div>
           </div>
         </div>
