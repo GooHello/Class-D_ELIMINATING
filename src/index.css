@@ -1040,17 +1040,23 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 40px;
+  justify-content: flex-start;
+  padding: 40px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ending-text {
   color: #00ff41;
   font-family: "Consolas", "Courier New", monospace;
-  font-size: 16px;
-  line-height: 2;
+  font-size: 15px;
+  line-height: 1.8;
   text-align: center;
   max-width: 600px;
+  width: 100%;
+  margin-top: auto;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .ending-line {
@@ -1064,7 +1070,8 @@ body {
 }
 
 .ending-btn {
-  margin-top: 40px;
+  margin-top: 30px;
+  margin-bottom: 40px;
   padding: 12px 40px;
   background: transparent;
   border: 1px solid #00ff41;
@@ -1075,6 +1082,7 @@ body {
   transition: all 0.2s;
   opacity: 0;
   animation: typeIn 0.5s ease-out forwards;
+  flex-shrink: 0;
 }
 
 .ending-btn:hover {
