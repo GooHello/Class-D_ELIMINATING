@@ -44,7 +44,7 @@ function App() {
   const [mission, setMission] = useState<MissionOrder>(() => getMission(loadSave().currentLevel));
   const [movesLeft, setMovesLeft] = useState(() => {
     const s = loadSave();
-    return s.movesLeftState ?? getMission(s.currentLevel).maxMoves;
+    return s.movesLeftState ?? getMission(s.currentLevel).suggestedDeploy;
   });
   // 新机制: 总进度 (单一数值)
   const [totalProgress, setTotalProgress] = useState<number>(() => {
@@ -81,6 +81,7 @@ function App() {
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [levelConsumed, setLevelConsumed] = useState(() => loadSave().levelConsumedState || 0);
   const [showFailed, setShowFailed] = useState(false);
+  const [emergencyUsed, setEmergencyUsed] = useState(false); // 紧急征召：每关限一次
   const [skillCooldowns, setSkillCooldowns] = useState({ shuffle: 0, purge: 0, extraMoves: 0 });
   const [selectingPurgeColor, setSelectingPurgeColor] = useState(false);
   const [speechBubbles, setSpeechBubbles] = useState<{id: number; text: string; x: number; y: number; isWaste: boolean}[]>([]);
@@ -728,9 +729,9 @@ function App() {
   // Keep ref in sync
   handleLevelCompleteRef.current = handleLevelComplete;
 
-  // ========== CONFIRM ALLOCATION (人员调拨确认) ==========
+  // ========== CONFIRM ALLOCATION (人员调拨确认 — 自动部署) ==========
   const confirmAllocation = useCallback(() => {
-    const deploy = Math.max(mission.minDeploy, Math.min(allocatedDeploy, mission.maxDeploy, save.inventoryCount));
+    const deploy = Math.min(mission.suggestedDeploy, save.inventoryCount);
     setMovesLeft(deploy);
     setAllocatedDeploy(deploy);
     // 从库存预扣分配量
@@ -742,7 +743,7 @@ function App() {
     // 创建新棋盘
     const newBoard = createBoard();
     setBoard(newBoard);
-  }, [mission, allocatedDeploy, save.inventoryCount, updateSave]);
+  }, [mission, save.inventoryCount, updateSave]);
 
   // ========== CHECK GAME OVER (out of moves) ==========
   useEffect(() => {
@@ -779,6 +780,7 @@ function App() {
     setLevelMaxCombo(0);
     setLevelSkillsUsed(0);
     setLevelColorCounts({});
+    setEmergencyUsed(false);
     setShowReport(false);
     clearProfileCache();
     setBattleLog([]);
@@ -842,6 +844,12 @@ function App() {
     setCombo(0);
     setShowFailed(false);
     setBoard(createBoard());
+    setEmergencyUsed(false);
+    setLevelDeaths(0);
+    setLevelSurvived(0);
+    setLevelMaxCombo(0);
+    setLevelSkillsUsed(0);
+    setLevelColorCounts({});
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
@@ -899,7 +907,8 @@ function App() {
       setTotalProgress(prev => prev + progressGained);
       setLevelConsumed(prev => prev + removed.length);
       setLevelSkillsUsed(prev => prev + 1);
-      updateSave(prev => ({ ...prev, totalConsumed: prev.totalConsumed + removed.length, inventoryCount: prev.inventoryCount - removed.length, dailyConsumed: prev.dailyConsumed + removed.length, skillPurgeUsed: prev.skillPurgeUsed + 1 }));
+      // 注意：不在这里扣库存，清洗的人员会通过 processMatches → survival roll 自然统计
+      updateSave(prev => ({ ...prev, skillPurgeUsed: prev.skillPurgeUsed + 1 }));
       setRemovingCells(new Set());
       const filled = applyGravity(newBoard as Piece[][]);
       setBoard(filled);
@@ -925,9 +934,24 @@ function App() {
     setTimeout(() => setHesitationNotice(null), 2500);
   }, [skillCooldowns.extraMoves, updateSave]);
 
+  // ========== 紧急征召：失败时可花库存买3步 ==========
+  const useEmergencyRecruit = useCallback(() => {
+    const cost = 5; // 紧急征召消耗5人换3步（代价高昂）
+    if (emergencyUsed || save.inventoryCount < cost) return;
+    setEmergencyUsed(true);
+    setMovesLeft(3);
+    setShowFailed(false);
+    updateSave(prev => ({
+      ...prev,
+      inventoryCount: prev.inventoryCount - cost,
+    }));
+    setHesitationNotice('⚠ 紧急征召批准：追加3步，额外消耗5人库存');
+    setTimeout(() => setHesitationNotice(null), 3000);
+  }, [emergencyUsed, save.inventoryCount, updateSave]);
+
   // Reduce cooldowns after each move
   useEffect(() => {
-    if (movesLeft < (mission?.maxMoves ?? 99)) {
+    if (movesLeft < (allocatedDeploy || mission?.suggestedDeploy || 99)) {
       setSkillCooldowns(prev => ({
         shuffle: Math.max(0, prev.shuffle - 1),
         purge: Math.max(0, prev.purge - 1),
@@ -1013,7 +1037,7 @@ function App() {
     // Reset all game state
     const firstMission = getMission(1);
     setMission(firstMission);
-    setMovesLeft(firstMission.maxMoves);
+    setMovesLeft(firstMission.suggestedDeploy);
     setTotalProgress(0);
     setGreenBuff(0);
     setLevelConsumed(0);
@@ -1722,14 +1746,28 @@ function App() {
               <div className="report-title">SCP基金会实验结算报告</div>
               <div className="report-line"><span>工单编号：</span><span>{mission.id}</span></div>
               <div className="report-line"><span>实验对象：</span><span>{mission.scpSubject}</span></div>
+              <div className="report-line"><span>安保等级：</span><span>{'●'.repeat(mission.securityLevel)}{'○'.repeat(5 - mission.securityLevel)}</span></div>
               <div className="report-line"><span>日　　期：</span><span>{new Date().toLocaleDateString('zh-CN')}</span></div>
               <hr className="report-divider" />
+              <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ 人员统计</div>
               <div className="report-line"><span>调拨人数：</span><span>{allocatedDeploy}</span></div>
+              <div className="report-line"><span>实际投入：</span><span>{allocatedDeploy - movesLeft}</span></div>
               <div className="report-line"><span>实际折损：</span><span style={{color: '#f53f3f'}}>{levelDeaths}</span></div>
               <div className="report-line"><span>存活回收：</span><span style={{color: '#00b42a'}}>{levelSurvived}</span></div>
               <div className="report-line"><span>未使用归还：</span><span>{movesLeft}</span></div>
               <div className="report-line"><span>净消耗：</span><span style={{fontWeight: 700, color: '#f53f3f'}}>{levelDeaths}</span></div>
-              <div className="report-line"><span>折损率：</span><span>{((levelDeaths + levelSurvived) > 0 ? (levelDeaths / (levelDeaths + levelSurvived) * 100).toFixed(1) : '0')}%</span></div>
+              <div className="report-line"><span>折损率：</span><span style={{color: ((levelDeaths + levelSurvived) > 0 && levelDeaths / (levelDeaths + levelSurvived) > 0.5) ? '#f53f3f' : '#86909c'}}>{((levelDeaths + levelSurvived) > 0 ? (levelDeaths / (levelDeaths + levelSurvived) * 100).toFixed(1) : '0')}%</span></div>
+              <hr className="report-divider" />
+              <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ 作业数据</div>
+              <div className="report-line"><span>最大连锁：</span><span>{levelMaxCombo > 0 ? `${levelMaxCombo}x combo` : '无连锁'}</span></div>
+              <div className="report-line"><span>任务效率：</span><span>{allocatedDeploy > 0 ? ((totalProgress / allocatedDeploy)).toFixed(1) : '0'} 进度/步</span></div>
+              {Object.entries(levelColorCounts).filter(([,v]) => v > 0).length > 0 && (
+                <div className="report-line"><span>工种分布：</span><span style={{fontSize: 11}}>
+                  {Object.entries(levelColorCounts).filter(([,v]) => v > 0).map(([c, v]) => `${COLOR_BONUSES[c as PieceColor]?.label || c}×${v}`).join(' / ')}
+                </span></div>
+              )}
+              <div className="report-line"><span>累计消耗：</span><span style={{fontWeight: 600}}>{save.totalConsumed.toLocaleString()} 人</span></div>
+              <hr className="report-divider" />
               <div className="report-conclusion">{mission.rewardText}</div>
               {mission.secondaryObjective && (
                 <div style={{margin: '8px 0', padding: '6px 10px', borderRadius: 4, background: 'rgba(255,125,0,0.06)', borderLeft: '3px solid #ff7d00'}}>
@@ -1782,17 +1820,27 @@ function App() {
       {showFailed && (
         <div className="modal-overlay">
           <div className="modal">
-            <div className="modal-header">📋 工单执行报告</div>
+            <div className="modal-header" style={{color: '#f53f3f'}}>📋 工单执行失败报告</div>
             <div className="modal-body">
               <div className="failed-text">
-                <p>步数已用尽，工单目标未完成。</p>
-                <p style={{ marginTop: 8, fontSize: 12, color: '#86909c' }}>
-                  请注意：连续未达标将影响您的年度绩效评级。
+                <p style={{fontSize: 14, fontWeight: 600}}>可用人员已全部投入，工单目标未完成。</p>
+                <div style={{margin: '10px 0', padding: '8px', background: 'rgba(245,63,63,0.06)', borderRadius: 4, fontSize: 12, lineHeight: 1.8}}>
+                  <div>进度：{Math.round((totalProgress / (mission?.targetProgress || 1)) * 100)}% / 100%</div>
+                  <div>已折损：{levelDeaths} 人 | 存活回收：{levelSurvived} 人</div>
+                  <div>最大连锁：{levelMaxCombo}</div>
+                </div>
+                <p style={{ marginTop: 8, fontSize: 11, color: '#86909c' }}>
+                  连续未达标将影响年度绩效评级。已折损人员不予返还。
                 </p>
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-primary" onClick={retryLevel}>重新派遣</button>
+            <div className="modal-footer" style={{flexDirection: 'column', gap: 8}}>
+              {!emergencyUsed && save.inventoryCount >= 5 && (
+                <button className="btn" onClick={useEmergencyRecruit} style={{width: '100%', borderColor: '#ff7d00', color: '#ff7d00'}}>
+                  🚨 紧急征召（+3步 / 消耗库存5人）
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={retryLevel} style={{width: '100%'}}>重新派遣</button>
             </div>
           </div>
         </div>
@@ -1837,21 +1885,64 @@ function App() {
       )}
 
       {/* Allocation Modal (人员调拨单) */}
-      {showAllocation && (
+      {showAllocation && (() => {
+        const actualDeploy = Math.min(mission.suggestedDeploy, save.inventoryCount);
+        const secText = '●'.repeat(mission.securityLevel) + '○'.repeat(5 - mission.securityLevel);
+        const insufficientWarning = save.inventoryCount < mission.suggestedDeploy;
+        return (
         <div className="modal-overlay">
           <div className="modal allocation-modal" style={{maxWidth: 480}}>
             <div className="modal-header">
-              <h3>📋 人员调拨申请单</h3>
+              <h3>📋 人员调拨通知</h3>
             </div>
             <div className="modal-body">
-              <div style={{marginBottom: 12, padding: '8px 12px', background: 'rgba(22,93,255,0.06)', borderRadius: 6}}>
-                <div style={{fontSize: 13, color: '#86909c'}}>工单编号</div>
-                <div style={{fontSize: 15, fontWeight: 600}}>{mission.id} — {mission.title}</div>
-                <div style={{fontSize: 12, color: '#86909c', marginTop: 4}}>目标异常：{mission.scpSubject} | 安保等级：{mission.securityLevel}</div>
+              <div style={{marginBottom: 12, padding: '10px 12px', background: 'rgba(22,93,255,0.06)', borderRadius: 6}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <div>
+                    <div style={{fontSize: 13, color: '#86909c'}}>工单编号</div>
+                    <div style={{fontSize: 15, fontWeight: 600}}>{mission.id}</div>
+                  </div>
+                  <div style={{textAlign: 'right'}}>
+                    <div style={{fontSize: 11, color: '#86909c'}}>安保等级</div>
+                    <div style={{fontSize: 14, letterSpacing: 2, color: mission.securityLevel >= 4 ? '#f53f3f' : mission.securityLevel >= 3 ? '#ff7d00' : '#86909c'}}>{secText}</div>
+                  </div>
+                </div>
+                <div style={{fontSize: 14, marginTop: 8, fontWeight: 500}}>{mission.title}</div>
+                <div style={{fontSize: 12, color: '#86909c', marginTop: 2}}>目标异常：{mission.scpSubject}</div>
+              </div>
+
+              <div style={{textAlign: 'center', margin: '16px 0', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: 8}}>
+                <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>系统自动调拨</div>
+                <div style={{fontSize: 42, fontWeight: 800, fontFamily: 'Consolas, monospace', color: insufficientWarning ? '#f53f3f' : 'var(--oa-text)'}}>
+                  {actualDeploy}
+                </div>
+                <div style={{fontSize: 12, color: '#86909c'}}>
+                  人员 → {actualDeploy} 步操作额度
+                </div>
+                {insufficientWarning && (
+                  <div style={{fontSize: 11, color: '#f53f3f', marginTop: 6}}>
+                    ⚠ 库存不足！建议 {mission.suggestedDeploy} 人，实际仅可调拨 {save.inventoryCount} 人
+                  </div>
+                )}
+              </div>
+
+              <div style={{display: 'flex', gap: 8, marginBottom: 10}}>
+                <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
+                  <div style={{color: '#86909c'}}>预估折损率</div>
+                  <div style={{fontWeight: 600, color: mission.securityLevel >= 4 ? '#f53f3f' : '#ff7d00'}}>{(mission.securityLevel * 15)}%</div>
+                </div>
+                <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
+                  <div style={{color: '#86909c'}}>预估伤亡</div>
+                  <div style={{fontWeight: 600}}>{mission.casualtyEstimate}</div>
+                </div>
+                <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
+                  <div style={{color: '#86909c'}}>调拨后库存</div>
+                  <div style={{fontWeight: 600, color: (save.inventoryCount - actualDeploy) < 50 ? '#f53f3f' : '#00b42a'}}>{(save.inventoryCount - actualDeploy).toLocaleString()}</div>
+                </div>
               </div>
 
               {mission.secondaryObjective && (
-                <div style={{marginBottom: 12, padding: '8px 12px', background: 'rgba(255,125,0,0.06)', borderRadius: 6, borderLeft: '3px solid #ff7d00'}}>
+                <div style={{marginBottom: 10, padding: '8px 12px', background: 'rgba(255,125,0,0.06)', borderRadius: 6, borderLeft: '3px solid #ff7d00'}}>
                   <div style={{fontSize: 11, color: '#ff7d00', fontWeight: 600}}>▸ 副目标（可选）</div>
                   <div style={{fontSize: 13, marginTop: 4}}>{mission.secondaryObjective.description}</div>
                   <div style={{fontSize: 11, color: '#86909c', marginTop: 2}}>
@@ -1860,57 +1951,29 @@ function App() {
                 </div>
               )}
 
-              <div style={{textAlign: 'center', margin: '16px 0'}}>
-                <div style={{fontSize: 12, color: '#86909c', marginBottom: 8}}>
-                  调拨人数 = 可用步数 | 建议：{mission.suggestedDeploy} 人
-                </div>
-                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12}}>
-                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.max(mission.minDeploy, prev - 5))} style={{padding: '4px 12px'}}>-5</button>
-                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.max(mission.minDeploy, prev - 1))} style={{padding: '4px 8px'}}>-</button>
-                  <div style={{fontSize: 28, fontWeight: 700, minWidth: 60, fontFamily: 'Consolas, monospace'}}>
-                    {allocatedDeploy}
-                  </div>
-                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.min(mission.maxDeploy, save.inventoryCount, prev + 1))} style={{padding: '4px 8px'}}>+</button>
-                  <button className="btn" onClick={() => setAllocatedDeploy(prev => Math.min(mission.maxDeploy, save.inventoryCount, prev + 5))} style={{padding: '4px 12px'}}>+5</button>
-                </div>
-                <div style={{fontSize: 11, color: '#86909c', marginTop: 6}}>
-                  范围：{mission.minDeploy} ~ {Math.min(mission.maxDeploy, save.inventoryCount)} 人 | 库存剩余：{save.inventoryCount.toLocaleString()}
-                </div>
-              </div>
-
               {save.currentLevel >= 12 && (
                 <div style={{marginBottom: 8, padding: '6px 10px', background: 'rgba(165,36,255,0.06)', borderRadius: 4, borderLeft: '3px solid #ab47bc', fontSize: 11, color: '#ab47bc'}}>
                   🤖 AI-HRMS 批注：{
-                    save.currentLevel >= 18 ? `建议无需调整，直接批准。人类判断在此环节的增值为 0.3%。` :
+                    save.currentLevel >= 18 ? `人类审批环节已标记为"冗余"。本通知仅为合规存档。` :
                     save.currentLevel >= 15 ? `本批次 ${Math.floor(60 + Math.random() * 30)}% 来源于 AI 替代下岗人员转化通道。供应充足。` :
-                    `历史数据显示，分配量偏离建议值 ±20% 以上的操作员，年终评估平均降低 1.2 级。`
+                    `提醒：调拨量由系统根据历史数据自动计算，人工干预已不再支持。`
                   }
                 </div>
               )}
-              <div style={{fontSize: 11, color: '#4e5969', padding: '6px 0', borderTop: '1px solid #2e303a'}}>
-                ⚠ 分配的人员将从库存中预扣。存活人员将在任务中实时返还库存。未使用人员在任务结束后全数归还。<br/>
-                ⚠ 任务失败时，已折损人员不予返还。
+              <div style={{fontSize: 10, color: '#4e5969', padding: '6px 0', borderTop: '1px solid #2e303a', lineHeight: 1.6}}>
+                ⚠ 人员将从库存中预扣。存活者实时返还，未使用者任务结束后归还。<br/>
+                ⚠ 步数耗尽未完成目标时，可申请一次紧急征召（额外消耗库存）。
               </div>
             </div>
-            <div className="modal-footer" style={{flexDirection: save.currentLevel >= 16 ? 'column' : 'row', gap: 8}}>
-              {save.currentLevel >= 16 ? (
-                <>
-                  <button className="btn btn-primary" onClick={() => { setAllocatedDeploy(mission.suggestedDeploy); setTimeout(confirmAllocation, 100); }} style={{width: '100%', fontSize: 16, padding: '10px 0'}}>
-                    🤖 一键批准（系统推荐 {mission.suggestedDeploy} 人）
-                  </button>
-                  <button className="btn" onClick={confirmAllocation} style={{width: '100%', fontSize: 11, opacity: 0.5}} disabled={allocatedDeploy < mission.minDeploy || allocatedDeploy > save.inventoryCount}>
-                    手动批准 ({allocatedDeploy} 人)
-                  </button>
-                </>
-              ) : (
-                <button className="btn btn-primary" onClick={confirmAllocation} disabled={allocatedDeploy < mission.minDeploy || allocatedDeploy > save.inventoryCount}>
-                  批准调拨 ({allocatedDeploy} 人)
-                </button>
-              )}
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={confirmAllocation} disabled={actualDeploy <= 0} style={{width: '100%'}}>
+                {save.currentLevel >= 16 ? '🤖 已自动批准' : '批准调拨'} ({actualDeploy} 人)
+              </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Purchase Modal */}
       {showPurchase && (
