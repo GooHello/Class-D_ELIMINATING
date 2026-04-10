@@ -141,6 +141,8 @@ function App() {
   const [endingBtnText, setEndingBtnText] = useState('[接受重新分类]');
   const [hasPlayerPiece, setHasPlayerPiece] = useState(false);
   const [uiDissolve, setUiDissolve] = useState(0); // 0=正常, 1~5=UI逐步消失阶段
+  const [milestoneFlash, setMilestoneFlash] = useState<string | null>(null); // 沉没成本里程碑
+  const lastMilestoneRef = useRef(0); // 上次触发的里程碑
   // 中途结局追踪
   const [disabledOptionClicks, setDisabledOptionClicks] = useState(0); // 结局E：点击禁用选项次数
   const [consecutiveSRatings, setConsecutiveSRatings] = useState(0);   // 结局H：连续S评级次数
@@ -505,23 +507,33 @@ function App() {
         if (newTotal >= 1000) unlockAchievement('thousand');
         if (newTotal >= 10000) unlockAchievement('ten_thousand');
 
-        // "统计数字的暴政"— 里程碑具象化
+        // "统计数字的暴政"— 里程碑具象化（写入战报 + 数字旁闪现）
         const milestones: Record<number, string> = {
-          100: '100。大约是两节地铁车厢的乘客。',
-          300: '300。一架客机的满载人数。',
-          500: '500。如果他们站成一排，队伍有 350 米长。',
-          1000: '1000。一所中学的全部学生。',
-          1500: '1500。一个居民小区的住户。',
-          2000: '2000。一个小镇的人口。',
-          3000: '3000。一座体育馆。观众席上空无一人。',
+          50: '大约是一辆长途大巴的乘客。',
+          100: '大约是两节地铁车厢的乘客。',
+          200: '一架小型客机的满载人数。',
+          300: '一架客机的满载人数。',
+          500: '如果他们站成一排，队伍有 350 米长。',
+          750: '一所小学的全部师生。',
+          1000: '一所中学的全部学生。',
+          1500: '一个居民小区的住户。',
+          2000: '一个小镇的人口。',
+          3000: '一座体育馆。观众席上空无一人。',
         };
         for (const [threshold, text] of Object.entries(milestones)) {
           const t = Number(threshold);
           if (newTotal >= t && prev.totalConsumed < t) {
+            // 写入战报面板（永久红色记录）
+            addLogEntry({
+              type: 'system' as any,
+              scpName: '📊 统计',
+              detail: `累计 ${t.toLocaleString()} — ${text}`,
+            });
+            // 数字旁短暂闪现
             setTimeout(() => {
-              setHesitationNotice(text);
-              setTimeout(() => setHesitationNotice(null), 5000);
-            }, 1500);
+              setMilestoneFlash(text);
+              setTimeout(() => setMilestoneFlash(null), 5000);
+            }, 800);
             break;
           }
         }
@@ -1410,6 +1422,16 @@ function App() {
 
           <div className="status-bar">
           </div>
+
+          {/* ===== THE NUMBER (沉没成本计数器) ===== */}
+          {save.currentLevel >= 5 && save.totalConsumed > 0 && (
+            <div className="silent-counter">
+              <span className="silent-number">{save.totalConsumed.toLocaleString()}</span>
+              {milestoneFlash && (
+                <span className="silent-milestone">{milestoneFlash}</span>
+              )}
+            </div>
+          )}
 
           {/* ===== HOVER PROFILE PANEL ===== */}
           <div className="profile-panel">
