@@ -20,6 +20,7 @@ import { getLastWord, getWasteMessage } from './data/lastWords';
 import { generateFullProfile, clearProfileCache, type DClassProfile } from './data/professions';
 import { getPhase, getTerm, getPhaseTransitionNotice } from './data/terminology';
 import { selectEnding, getMidgameEnding } from './data/endings';
+import { getAIComment } from './data/aiComments';
 import { calculateWeightedProgress, calculateCasualtyRate, getStepCost, COLOR_BONUSES, calculateColorPassives } from './data/colorBonuses';
 import PieceToken from './components/PieceToken';
 import { ROWS, COLS, rollSurvival, triggerContainmentBreach, createPiece } from './game/MatchEngine';
@@ -200,8 +201,9 @@ function App() {
             unlockAchievement('hesitated');
           }
           if (newCount === 3) {
-            setHesitationNotice('检测到操作延迟，已记录。');
-            setTimeout(() => setHesitationNotice(null), 2500);
+            const aiHesMsg = getAIComment(save.currentLevel, 'hesitation') || '检测到操作延迟，已记录。';
+            setHesitationNotice(aiHesMsg);
+            setTimeout(() => setHesitationNotice(null), 3000);
           }
           if (newCount === 10) {
             setShowPsychModal(true);
@@ -270,6 +272,15 @@ function App() {
           deathCause: acc.dead > 0 ? deathCauses[Math.floor(Math.random() * deathCauses.length)] : undefined,
           detail: acc.combos > 1 ? `${acc.combos}连收容行动` : undefined,
         });
+        // AI 实时评语 — combo 结束后
+        const aiTrigger = acc.combos >= 3 ? 'high_efficiency' : acc.dead > acc.survived ? 'low_efficiency' : 'after_match';
+        const aiMsg = getAIComment(save.currentLevel, aiTrigger);
+        if (aiMsg && !hesitationNotice) {
+          setTimeout(() => {
+            setHesitationNotice(aiMsg);
+            setTimeout(() => setHesitationNotice(null), 3000);
+          }, 600);
+        }
         comboAccum.current = { deployed: 0, survived: 0, dead: 0, combos: 0 };
       }
 
@@ -854,8 +865,9 @@ function App() {
     setShuffleDebuff(2); // 下2步进度 -30%
     setLevelSkillsUsed(prev => prev + 1);
     updateSave(prev => ({ ...prev, skillShuffleUsed: prev.skillShuffleUsed + 1 }));
-    setHesitationNotice('⚠ 紧急重组：接下来2步进度-30%');
-    setTimeout(() => setHesitationNotice(null), 2500);
+    const aiSkillMsg = getAIComment(save.currentLevel, 'skill_used');
+    setHesitationNotice(aiSkillMsg || '⚠ 紧急重组：接下来2步进度-30%');
+    setTimeout(() => setHesitationNotice(null), 3000);
   }, [isAnimating, skillCooldowns.shuffle, updateSave]);
 
   const useSkillPurge = useCallback((color: PieceColor) => {
@@ -1863,6 +1875,15 @@ function App() {
                 </div>
               </div>
 
+              {save.currentLevel >= 12 && (
+                <div style={{marginBottom: 8, padding: '6px 10px', background: 'rgba(165,36,255,0.06)', borderRadius: 4, borderLeft: '3px solid #ab47bc', fontSize: 11, color: '#ab47bc'}}>
+                  🤖 AI-HRMS 批注：{
+                    save.currentLevel >= 18 ? `建议无需调整，直接批准。人类判断在此环节的增值为 0.3%。` :
+                    save.currentLevel >= 15 ? `本批次 ${Math.floor(60 + Math.random() * 30)}% 来源于 AI 替代下岗人员转化通道。供应充足。` :
+                    `历史数据显示，分配量偏离建议值 ±20% 以上的操作员，年终评估平均降低 1.2 级。`
+                  }
+                </div>
+              )}
               <div style={{fontSize: 11, color: '#4e5969', padding: '6px 0', borderTop: '1px solid #2e303a'}}>
                 ⚠ 分配的人员将从库存中预扣。存活人员将在任务中实时返还库存。未使用人员在任务结束后全数归还。<br/>
                 ⚠ 任务失败时，已折损人员不予返还。
