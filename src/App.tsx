@@ -147,6 +147,7 @@ function App() {
   // ========== REFS ==========
   const lastMoveTime = useRef(Date.now());
   const hesitationTimer = useRef<ReturnType<typeof setInterval>>();
+  const hesitationFired = useRef(false); // 同一思考期内只计一次
   const levelStartTime = useRef(Date.now());
   const levelHesitations = useRef(0);
   const handleLevelCompleteRef = useRef<(finalProgress: Record<PieceColor, number>, consumed: number) => void>(() => {});
@@ -187,11 +188,14 @@ function App() {
   }, []);
 
   // ========== HESITATION TRACKER ==========
+  // 15秒无操作才算犹豫，且同一思考期内只计一次（需要新操作后重置）
   useEffect(() => {
     hesitationTimer.current = setInterval(() => {
       if (isAnimating || showReport || showEthics || showEndingA) return;
+      if (hesitationFired.current) return; // 已经记录过了，等待玩家操作后重置
       const elapsed = Date.now() - lastMoveTime.current;
-      if (elapsed >= 5000 && elapsed < 5500) {
+      if (elapsed >= 15000) {
+        hesitationFired.current = true; // 标记：本次思考期已记录
         levelHesitations.current++;
         updateSave(prev => {
           const newCount = prev.hesitationCount + 1;
@@ -200,23 +204,23 @@ function App() {
           if (newCount === 1) {
             unlockAchievement('hesitated');
           }
-          if (newCount === 3) {
+          if (newCount === 8) {
             const aiHesMsg = getAIComment(save.currentLevel, 'hesitation') || '检测到操作延迟，已记录。';
             setHesitationNotice(aiHesMsg);
             setTimeout(() => setHesitationNotice(null), 3000);
           }
-          if (newCount === 10) {
+          if (newCount === 20) {
             setShowPsychModal(true);
           }
-          // 结局F：犹豫达到20次
-          if (newCount >= 20) {
+          // 结局F：犹豫达到40次
+          if (newCount >= 40) {
             setTimeout(() => checkMidgameEndings(), 1000);
           }
 
           return { ...prev, hesitationCount: newCount, hesitationHistory: newHistory, levelsWithoutHesitation: 0, humanityScore: Math.min(150, prev.humanityScore + 3) };
         });
       }
-    }, 500);
+    }, 1000);
     return () => clearInterval(hesitationTimer.current);
   }, [isAnimating, showReport, showEthics, showEndingA, updateSave, unlockAchievement]);
 
@@ -585,6 +589,7 @@ function App() {
     if (isAnimating || showReport || showEthics || showEndingA || showFailed || showAllocation) return;
 
     lastMoveTime.current = Date.now();
+    hesitationFired.current = false; // 玩家操作了，重置犹豫标记
     const piece = board[row][col];
     triggerProfessionFlash(piece);
 
@@ -780,6 +785,7 @@ function App() {
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
+    hesitationFired.current = false;
 
     // 显示人员调拨单（而非直接开始）
     setShowAllocation(true);
@@ -847,6 +853,7 @@ function App() {
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
+    hesitationFired.current = false;
   }, [save.currentLevel]);
 
   // ========== ACTIVE SKILLS ==========
@@ -1030,6 +1037,7 @@ function App() {
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
+    hesitationFired.current = false;
   }, [updateSave]);
 
   // ========== EMAIL READING ==========
@@ -1104,7 +1112,7 @@ function App() {
   checkMidgameEndingsRef.current = () => {
     if (showEndingA || showGlitch) return;
 
-    if (save.hesitationCount >= 20) {
+    if (save.hesitationCount >= 40) {
       triggerMidgameEndingRef.current('F');
       return;
     }
@@ -1121,7 +1129,7 @@ function App() {
 
     const availableEmails = emails.filter(e => e.triggerLevel <= save.currentLevel);
     const allRead = availableEmails.length > 0 && availableEmails.every(e => save.readEmails.includes(e.id));
-    if (allRead && save.hesitationCount >= 10 && save.currentLevel >= 10) {
+    if (allRead && save.hesitationCount >= 20 && save.currentLevel >= 10) {
       triggerMidgameEndingRef.current('I');
       return;
     }
