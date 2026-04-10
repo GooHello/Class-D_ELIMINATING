@@ -23,7 +23,7 @@ import { selectEnding, getMidgameEnding } from './data/endings';
 import { getAIComment } from './data/aiComments';
 import { calculateWeightedProgress, calculateCasualtyRate, getStepCost, COLOR_BONUSES, calculateColorPassives } from './data/colorBonuses';
 import PieceToken from './components/PieceToken';
-import { ROWS, COLS, rollSurvival, triggerContainmentBreach, createPiece } from './game/MatchEngine';
+import { ROWS, COLS, rollSurvival, triggerContainmentBreach, createPiece, applyHazardZones, generateHazardPositions, stampHazardFlags } from './game/MatchEngine';
 import { Shield, Lock, FileText, AlertTriangle as AlertIcon } from 'lucide-react';
 
 function App() {
@@ -55,6 +55,7 @@ function App() {
   const [combo, setCombo] = useState(0);
   // 绿色增益 buff: 累计降低折损率
   const [greenBuff, setGreenBuff] = useState(0);
+  const [hazardPositions, setHazardPositions] = useState<Set<string>>(new Set());
   // 红色压制协议: 冻结行
   const [frozenRows, setFrozenRows] = useState<Set<number>>(new Set());
   const [isAnimating, setIsAnimating] = useState(false);
@@ -82,6 +83,8 @@ function App() {
   const [levelConsumed, setLevelConsumed] = useState(() => loadSave().levelConsumedState || 0);
   const [showFailed, setShowFailed] = useState(false);
   const [emergencyUsed, setEmergencyUsed] = useState(false); // 紧急征召：每关限一次
+  const [emergencyRecruits, setEmergencyRecruits] = useState<DClassProfile[]>([]); // 紧急征召名单
+  const [showEmergencyConfirm, setShowEmergencyConfirm] = useState(false); // 确认弹窗
   const [skillCooldowns, setSkillCooldowns] = useState({ shuffle: 0, purge: 0, extraMoves: 0 });
   const [selectingPurgeColor, setSelectingPurgeColor] = useState(false);
   const [speechBubbles, setSpeechBubbles] = useState<{id: number; text: string; x: number; y: number; isWaste: boolean}[]>([]);
@@ -123,6 +126,10 @@ function App() {
   const bonusColorSet = useMemo(() => {
     return new Set(mission.bonusColors || []);
   }, [mission]);
+
+  // ========== SILENT LEVEL (静默审阅关) ==========
+  const [showSilentLevel, setShowSilentLevel] = useState(false);
+  const [silentPageIndex, setSilentPageIndex] = useState(0);
 
   // ========== DEPLOYMENT ALLOCATION (人员调拨) ==========
   const [showAllocation, setShowAllocation] = useState(true); // 每关开始前显示
@@ -319,7 +326,10 @@ function App() {
       setIsAnimating(false);
       setCombo(0);
       if (!hasPossibleMoves(currentBoard)) {
-        const freshBoard = createBoard();
+        let freshBoard = createBoard();
+        if (hazardPositions.size > 0) {
+          freshBoard = stampHazardFlags(freshBoard, hazardPositions);
+        }
         setBoard(freshBoard);
       }
       return;
@@ -570,10 +580,12 @@ function App() {
 
       // === SURVIVAL ROLL (with combo + green buff) ===
       const securityLevel = mission?.securityLevel ?? 1;
-      const casualtyRate = calculateCasualtyRate(securityLevel, newCombo, greenBuff);
+      const baseCasualtyRate = calculateCasualtyRate(securityLevel, newCombo, greenBuff);
       const survivors: Piece[] = [];
       const dead: Piece[] = [];
       for (const p of removed) {
+        // Hazard zone pieces face doubled casualty rate (capped at 0.95)
+        const casualtyRate = p.hazard ? Math.min(0.95, baseCasualtyRate * 2) : baseCasualtyRate;
         if (Math.random() > casualtyRate) survivors.push(p);
         else dead.push(p);
       }
@@ -773,10 +785,26 @@ function App() {
       inventoryCount: prev.inventoryCount - deploy,
     }));
     setShowAllocation(false);
-    // 创建新棋盘
-    const newBoard = createBoard();
+    // 创建新棋盘（有高危区域时应用）
+    let newBoard = createBoard();
+    if (mission.hazardZones && mission.hazardZones > 0) {
+      const hzPositions = generateHazardPositions(mission.hazardZones);
+      setHazardPositions(hzPositions);
+      newBoard = stampHazardFlags(newBoard, hzPositions);
+    } else {
+      setHazardPositions(new Set());
+    }
     setBoard(newBoard);
   }, [mission, save.inventoryCount, updateSave]);
+
+  // ========== SILENT LEVEL DETECTION ==========
+  useEffect(() => {
+    if (showAllocation && mission?.missionType === 'silent') {
+      setShowAllocation(false);
+      setShowSilentLevel(true);
+      setSilentPageIndex(0);
+    }
+  }, [showAllocation, mission]);
 
   // ========== CHECK GAME OVER (out of moves) ==========
   useEffect(() => {
@@ -814,6 +842,8 @@ function App() {
     setLevelSkillsUsed(0);
     setLevelColorCounts({});
     setEmergencyUsed(false);
+    setEmergencyRecruits([]);
+    setShowEmergencyConfirm(false);
     setShowReport(false);
     clearProfileCache();
     setBattleLog([]);
@@ -828,6 +858,13 @@ function App() {
 
     // Create new board, maybe with player piece
     let newBoard = createBoard();
+    if (nextMission.hazardZones && nextMission.hazardZones > 0) {
+      const hzPositions = generateHazardPositions(nextMission.hazardZones);
+      setHazardPositions(hzPositions);
+      newBoard = stampHazardFlags(newBoard, hzPositions);
+    } else {
+      setHazardPositions(new Set());
+    }
     if (save.endingASeen && !hasPlayerPiece) {
       const rr = Math.floor(Math.random() * 8);
       const cc = Math.floor(Math.random() * 8);
@@ -878,8 +915,20 @@ function App() {
     setLevelConsumed(0);
     setCombo(0);
     setShowFailed(false);
-    setBoard(createBoard());
+    {
+      let newBoard = createBoard();
+      if (currentMission.hazardZones && currentMission.hazardZones > 0) {
+        const hzPositions = generateHazardPositions(currentMission.hazardZones);
+        setHazardPositions(hzPositions);
+        newBoard = stampHazardFlags(newBoard, hzPositions);
+      } else {
+        setHazardPositions(new Set());
+      }
+      setBoard(newBoard);
+    }
     setEmergencyUsed(false);
+    setEmergencyRecruits([]);
+    setShowEmergencyConfirm(false);
     setLevelDeaths(0);
     setLevelSurvived(0);
     setLevelMaxCombo(0);
@@ -903,7 +952,10 @@ function App() {
 
   const useSkillShuffle = useCallback(() => {
     if (isAnimating || skillCooldowns.shuffle > 0) return;
-    const newBoard = createBoard();
+    let newBoard = createBoard();
+    if (hazardPositions.size > 0) {
+      newBoard = stampHazardFlags(newBoard, hazardPositions);
+    }
     setBoard(newBoard);
     setSkillCooldowns(prev => ({ ...prev, shuffle: 3 }));
     setMovesLeft(prev => Math.max(0, prev - 2));
@@ -970,19 +1022,81 @@ function App() {
   }, [skillCooldowns.extraMoves, updateSave]);
 
   // ========== 紧急征召：失败时可花库存买3步 ==========
-  const useEmergencyRecruit = useCallback(() => {
-    const cost = 5; // 紧急征召消耗5人换3步（代价高昂）
-    if (emergencyUsed || save.inventoryCount < cost) return;
+  const EMERGENCY_COST = 5;
+
+  // Step 1: 生成征召名单，展示确认弹窗
+  const requestEmergencyRecruit = useCallback(() => {
+    if (emergencyUsed || save.inventoryCount < EMERGENCY_COST) return;
+    const phase = getPhase(save.currentLevel);
+    const recruits: DClassProfile[] = [];
+    for (let i = 0; i < EMERGENCY_COST; i++) {
+      recruits.push(generateFullProfile(undefined, phase));
+    }
+    setEmergencyRecruits(recruits);
+    setShowEmergencyConfirm(true);
+  }, [emergencyUsed, save.inventoryCount, save.currentLevel]);
+
+  // Step 2: 玩家确认后执行征召
+  const confirmEmergencyRecruit = useCallback(() => {
+    setShowEmergencyConfirm(false);
     setEmergencyUsed(true);
     setMovesLeft(3);
     setShowFailed(false);
     updateSave(prev => ({
       ...prev,
-      inventoryCount: prev.inventoryCount - cost,
+      inventoryCount: prev.inventoryCount - EMERGENCY_COST,
     }));
-    setHesitationNotice('⚠ 紧急征召批准：追加3步，额外消耗5人库存');
+    setHesitationNotice('⚠ 紧急征召批准：追加3步');
     setTimeout(() => setHesitationNotice(null), 3000);
-  }, [emergencyUsed, save.inventoryCount, updateSave]);
+  }, [updateSave]);
+
+  const cancelEmergencyRecruit = useCallback(() => {
+    setShowEmergencyConfirm(false);
+    setEmergencyRecruits([]);
+  }, []);
+
+  // ========== SILENT LEVEL COMPLETION ==========
+  const completeSilentLevel = useCallback(() => {
+    setShowSilentLevel(false);
+    const nextLevel = save.currentLevel + 1;
+    const nextMission = getMission(nextLevel);
+    setMission(nextMission);
+    setMovesLeft(nextMission.suggestedDeploy);
+    setTotalProgress(0);
+    setGreenBuff(0);
+    setLevelConsumed(0);
+    setCombo(0);
+    setBattleLog([]);
+    setLevelDeaths(0);
+    setLevelSurvived(0);
+    setLevelMaxCombo(0);
+    setLevelSkillsUsed(0);
+    setLevelColorCounts({});
+    setEmergencyUsed(false);
+    setShowAllocation(true);
+    setAllocatedDeploy(nextMission.suggestedDeploy);
+
+    let newBoard = createBoard();
+    if (nextMission.hazardZones && nextMission.hazardZones > 0) {
+      const hzPositions = generateHazardPositions(nextMission.hazardZones);
+      setHazardPositions(hzPositions);
+      newBoard = stampHazardFlags(newBoard, hzPositions);
+    } else {
+      setHazardPositions(new Set());
+    }
+    setBoard(newBoard);
+
+    updateSave(prev => ({
+      ...prev,
+      currentLevel: nextLevel,
+      kpiHistory: [...prev.kpiHistory, { level: prev.currentLevel, consumed: 0, rating: '—' }],
+      boardState: null,
+      progressState: null,
+      movesLeftState: null,
+      levelConsumedState: 0,
+    }));
+    levelStartTime.current = Date.now();
+  }, [save.currentLevel, updateSave]);
 
   // Reduce cooldowns after each move
   useEffect(() => {
@@ -1089,7 +1203,17 @@ function App() {
     setBattleLog([]);
     setSpeechBubbles([]);
     clearProfileCache();
-    setBoard(createBoard());
+    {
+      let newBoard = createBoard();
+      if (firstMission.hazardZones && firstMission.hazardZones > 0) {
+        const hzPositions = generateHazardPositions(firstMission.hazardZones);
+        setHazardPositions(hzPositions);
+        newBoard = stampHazardFlags(newBoard, hzPositions);
+      } else {
+        setHazardPositions(new Set());
+      }
+      setBoard(newBoard);
+    }
     setHasPlayerPiece(false);
     setUiDissolve(0);
     setDisabledOptionClicks(0);
@@ -1400,6 +1524,7 @@ function App() {
                     isDropping={droppingCells.has(`${r},${c}`)}
                     isPlayerPiece={piece.isPlayerPiece}
                     isTargetColor={bonusColorSet.has(piece.color)}
+                    isHazard={!!piece.hazard}
                     onClick={() => handlePieceClick(r, c)}
                     onHover={() => {
                       triggerProfessionFlash(piece);
@@ -1896,9 +2021,9 @@ function App() {
               </div>
             </div>
             <div className="modal-footer" style={{flexDirection: 'column', gap: 8}}>
-              {!emergencyUsed && save.inventoryCount >= 5 && (
-                <button className="btn" onClick={useEmergencyRecruit} style={{width: '100%', borderColor: '#ff7d00', color: '#ff7d00'}}>
-                  🚨 {getTerm('emergencyRecruit', getPhase(save.currentLevel))}（+3步 / 消耗{getTerm('inventory', getPhase(save.currentLevel))}5{getTerm('unitCounter', getPhase(save.currentLevel))}）
+              {!emergencyUsed && save.inventoryCount >= EMERGENCY_COST && (
+                <button className="btn" onClick={requestEmergencyRecruit} style={{width: '100%', borderColor: '#ff7d00', color: '#ff7d00'}}>
+                  🚨 {getTerm('emergencyRecruit', getPhase(save.currentLevel))}（+3步 / 消耗{getTerm('inventory', getPhase(save.currentLevel))}{EMERGENCY_COST}{getTerm('unitCounter', getPhase(save.currentLevel))}）
                 </button>
               )}
               <button className="btn btn-primary" onClick={retryLevel} style={{width: '100%'}}>重新派遣</button>
@@ -1906,6 +2031,164 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Emergency Recruit Confirmation — Named Roster */}
+      {showEmergencyConfirm && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 420 }}>
+            <div className="modal-header" style={{ borderColor: '#ff7d00', color: '#ff7d00' }}>
+              🚨 紧急征召令
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 12, color: '#86909c', marginBottom: 10, lineHeight: 1.6 }}>
+                {getPhase(save.currentLevel) === 'PHASE_HUMAN'
+                  ? '以下人员将被紧急调入当前收容区域。根据现场安全评估，预计生还率极低。'
+                  : '以下资源将被追加投入。请确认调拨。'}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {emergencyRecruits.map((recruit, i) => {
+                  const phase = getPhase(save.currentLevel);
+                  return (
+                    <div key={i} className="emergency-recruit-card" style={{
+                      padding: '8px 10px',
+                      background: 'rgba(245,63,63,0.04)',
+                      border: '1px solid rgba(245,63,63,0.15)',
+                      borderRadius: 4,
+                      fontFamily: 'Consolas, monospace',
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                    }}>
+                      {phase === 'PHASE_HUMAN' ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#1d2129' }}>
+                            {recruit.name}，{recruit.age}岁
+                          </div>
+                          <div style={{ color: '#86909c' }}>
+                            前职：{recruit.formerJob}
+                          </div>
+                          {recruit.personalDetail && (
+                            <div style={{ color: '#c9cdd4', fontSize: 11, fontStyle: 'italic' }}>
+                              "{recruit.personalDetail}"
+                            </div>
+                          )}
+                        </>
+                      ) : phase === 'PHASE_NUMBER' ? (
+                        <div style={{ color: '#86909c' }}>
+                          {recruit.id} | 工种：已分配 | 状态：待部署
+                        </div>
+                      ) : (
+                        <div style={{ color: '#4e5969' }}>
+                          {recruit.phaseLabel || recruit.id}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {getPhase(save.currentLevel) === 'PHASE_HUMAN' && (
+                <p style={{ fontSize: 11, color: '#f53f3f', marginTop: 10, textAlign: 'center' }}>
+                  * 上述人员在签署知情同意书时被告知"例行转岗"
+                </p>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={cancelEmergencyRecruit} style={{ flex: 1 }}>
+                取消
+              </button>
+              <button className="btn" onClick={confirmEmergencyRecruit} style={{ flex: 1, borderColor: '#f53f3f', color: '#f53f3f' }}>
+                确认征召
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Silent Level — Personnel Disposition Report */}
+      {showSilentLevel && (() => {
+        const deadCount = Math.max(save.totalConsumed, 8);
+        const ENTRIES_PER_PAGE = 6;
+        const totalPages = Math.max(1, Math.ceil(Math.min(deadCount, 30) / ENTRIES_PER_PAGE));
+        const pageStart = silentPageIndex * ENTRIES_PER_PAGE;
+        const pageEnd = Math.min(pageStart + ENTRIES_PER_PAGE, Math.min(deadCount, 30));
+        const isLastPage = silentPageIndex >= totalPages - 1;
+        
+        return (
+          <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.92)' }}>
+            <div className="modal" style={{ maxWidth: 520, background: '#1a1a1a', border: '1px solid #333', color: '#c9cdd4' }}>
+              <div className="modal-header" style={{ borderColor: '#444', color: '#86909c', fontFamily: 'Consolas, monospace', fontSize: 13 }}>
+                ▓ 季度人员处置报告 ▓
+              </div>
+              <div className="modal-body" style={{ padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, color: '#4e5969', marginBottom: 12, fontFamily: 'Consolas, monospace', lineHeight: 1.8 }}>
+                  <div>报告期间：2026年第{Math.ceil(save.currentLevel / 5)}季度</div>
+                  <div>统计范围：Site-19 D级人员管理办公室</div>
+                  <div>编制状态：已处置 {save.totalConsumed} 人 | 现存库存 {save.inventoryCount} 人</div>
+                  <div style={{ borderBottom: '1px dashed #333', paddingBottom: 8, marginBottom: 8 }}>
+                    本报告需逐页审阅并签章确认。第 {silentPageIndex + 1} / {totalPages} 页
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {Array.from({ length: pageEnd - pageStart }, (_, i) => {
+                    const profile = generateFullProfile(undefined, 'PHASE_HUMAN');
+                    const causes = [
+                      '收容实验中未返回', '接触异常后生命体征消失',
+                      '执行现场净化协议', '实验器具操作失误（致命）',
+                      '作为诱饵投入成功', '精神崩溃后执行标准处置',
+                      '暴露于异常辐射区', '被收容物直接消灭',
+                      '参与探索任务，通讯中断', '转化为异常个体，已收容'
+                    ];
+                    const cause = causes[(pageStart + i) % causes.length];
+                    return (
+                      <div key={i} style={{
+                        padding: '8px 10px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid #2a2a2a',
+                        borderLeft: '3px solid #4e5969',
+                        fontFamily: 'Consolas, monospace',
+                        fontSize: 12,
+                        lineHeight: 1.7,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#c9cdd4', fontWeight: 600 }}>{profile.name}，{profile.age}岁</span>
+                          <span style={{ color: '#4e5969', fontSize: 10 }}>{profile.id}</span>
+                        </div>
+                        <div style={{ color: '#86909c', fontSize: 11 }}>前职：{profile.formerJob}</div>
+                        <div style={{ color: '#f53f3f', fontSize: 11, opacity: 0.7 }}>处置原因：{cause}</div>
+                        {profile.personalDetail && (
+                          <div style={{ color: '#333', fontSize: 10, fontStyle: 'italic', marginTop: 2 }}>
+                            "{profile.personalDetail}"
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {deadCount > 30 && isLastPage && (
+                  <div style={{ textAlign: 'center', color: '#4e5969', fontSize: 11, marginTop: 12, fontFamily: 'Consolas, monospace' }}>
+                    ……余 {deadCount - 30} 条记录已省略。详见附件C。
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer" style={{ borderColor: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: '#333', fontFamily: 'Consolas, monospace' }}>
+                  {isLastPage ? '审阅完成。请签章确认。' : `还剩 ${totalPages - silentPageIndex - 1} 页`}
+                </span>
+                {isLastPage ? (
+                  <button className="btn" onClick={completeSilentLevel} style={{ borderColor: '#4e5969', color: '#86909c' }}>
+                    ☑ 已阅，确认归档
+                  </button>
+                ) : (
+                  <button className="btn" onClick={() => setSilentPageIndex(p => p + 1)} style={{ borderColor: '#4e5969', color: '#86909c' }}>
+                    下一页 →
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Ethics Review */}
       {showEthics && currentEthics && (

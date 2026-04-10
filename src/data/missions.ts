@@ -30,6 +30,10 @@ export interface MissionOrder {
   narrativeBeat: 'minor' | 'major' | null;
   /** 副目标（可选） */
   secondaryObjective?: SecondaryObjective;
+  /** 高危区域数量（0=无） */
+  hazardZones?: number;
+  /** 关卡类型：默认 match3，silent 为静默审阅关 */
+  missionType?: 'match3' | 'silent';
 }
 
 export type PieceColor = 'blue' | 'red' | 'green' | 'orange' | 'purple';
@@ -162,6 +166,7 @@ export const missions: MissionOrder[] = [
     rewardText: '再收容成功。诱饵人员已计入本月折旧。',
     casualtyEstimate: '1（诱饵）',
     narrativeBeat: 'minor',
+    hazardZones: 1,
   },
   {
     id: 'EXP-2026-0007',
@@ -211,6 +216,7 @@ export const missions: MissionOrder[] = [
     rewardText: '阈值已更新。受试者及摄影团队已处理。现场清洁完成。',
     casualtyEstimate: '全损',
     narrativeBeat: 'minor',
+    hazardZones: 1,
   },
   {
     id: 'EXP-2026-0010',
@@ -234,6 +240,24 @@ export const missions: MissionOrder[] = [
     },
   },
 
+  // ===== 静默审阅关 =====
+  // 设计原则：强制面对。不是游戏，而是清算。
+  {
+    id: 'EXP-2026-AUDIT',
+    scpSubject: '人事处',
+    title: '季度人员处置报告审阅',
+    securityLevel: 0,
+    targetProgress: 0,
+    bonusColors: [],
+    suggestedDeploy: 0,
+    minDeploy: 0,
+    maxDeploy: 0,
+    rewardText: '已确认审阅。本季度数据已归档。',
+    casualtyEstimate: '—',
+    narrativeBeat: 'major',
+    missionType: 'silent',
+  },
+
   // ===== 第三章：体制之轮 =====
   // 设计原则：真正的资源压力。玩家开始感受到库存紧张
   {
@@ -249,6 +273,7 @@ export const missions: MissionOrder[] = [
     rewardText: '程序已完成。细节已列为5级机密。您无需了解更多。',
     casualtyEstimate: '[数据删除]',
     narrativeBeat: null,
+    hazardZones: 2,
     secondaryObjective: {
       type: 'no_skills',
       threshold: 0,
@@ -284,6 +309,7 @@ export const missions: MissionOrder[] = [
     rewardText: '样本已获取。采集队伍已执行净化协议。区域已封锁。',
     casualtyEstimate: '全队',
     narrativeBeat: null,
+    hazardZones: 2,
   },
   {
     id: 'EXP-2026-0014',
@@ -319,6 +345,7 @@ export const missions: MissionOrder[] = [
     rewardText: '██████████████████████████████',
     casualtyEstimate: '██',
     narrativeBeat: 'major',
+    hazardZones: 3,
   },
 
   // ===== 第四章：终局之路 =====
@@ -378,6 +405,7 @@ export const missions: MissionOrder[] = [
     rewardText: '[本报告已被O5议会删除]',
     casualtyEstimate: '[权限不足]',
     narrativeBeat: 'minor',
+    hazardZones: 3,
   },
   {
     id: 'EXP-2026-0019',
@@ -406,6 +434,7 @@ export const missions: MissionOrder[] = [
     rewardText: '',
     casualtyEstimate: '所有人',
     narrativeBeat: 'major',
+    hazardZones: 4,
   },
 ];
 

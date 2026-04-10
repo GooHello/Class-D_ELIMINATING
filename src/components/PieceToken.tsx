@@ -35,13 +35,14 @@ interface PieceTokenProps {
   isDropping: boolean;
   isPlayerPiece?: boolean;
   isTargetColor: boolean;
+  isHazard?: boolean;
   onClick: () => void;
   onHover: () => void;
   onHoverEnd?: () => void;
 }
 
 export default function PieceToken({
-  color, special, dClassId, isSelected, isRemoving, removeClass, isDropping, isPlayerPiece, isTargetColor, onClick, onHover, onHoverEnd
+  color, special, dClassId, isSelected, isRemoving, removeClass, isDropping, isPlayerPiece, isTargetColor, isHazard, onClick, onHover, onHoverEnd
 }: PieceTokenProps) {
   return (
     <div
@@ -58,8 +59,12 @@ export default function PieceToken({
           isDropping ? 'dropping' : '',
           isPlayerPiece ? 'player-piece' : '',
           isTargetColor ? 'bonus-glow' : '',
+          isHazard ? 'hazard-zone' : '',
         ].filter(Boolean).join(' ')}
       >
+        {/* Hazard overlay */}
+        {isHazard && <div className="token-hazard-overlay" />}
+
         {/* Top stripe - classification */}
         <div className="token-stripe">
           <span className="token-class-label">{WORK_LABELS[color]}</span>

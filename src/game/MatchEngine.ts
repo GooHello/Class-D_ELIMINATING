@@ -15,7 +15,8 @@ export interface Piece {
   dClassId: string;
   profession: string;
   isPlayerPiece?: boolean;
-  isSurvivor?: boolean; // returned from containment alive
+  isSurvivor?: boolean;
+  hazard?: boolean; // 高危区域：消除时折损率翻倍
 }
 
 export interface MatchResult {
@@ -290,6 +291,43 @@ export function applyGravity(board: Piece[][], survivors?: Piece[]): Piece[][] {
   }
 
   return newBoard as Piece[][];
+}
+
+/**
+ * 在棋盘上生成高危区域（2×2或3×2的矩形污染区）
+ * hazardCount: 生成几个高危区域
+ */
+export function generateHazardPositions(hazardCount: number): Set<string> {
+  const positions = new Set<string>();
+  for (let i = 0; i < hazardCount; i++) {
+    const isWide = Math.random() > 0.5;
+    const h = 2;
+    const w = isWide ? 3 : 2;
+    const startR = Math.floor(Math.random() * (ROWS - h));
+    const startC = Math.floor(Math.random() * (COLS - w));
+    for (let dr = 0; dr < h; dr++) {
+      for (let dc = 0; dc < w; dc++) {
+        positions.add(`${startR + dr},${startC + dc}`);
+      }
+    }
+  }
+  return positions;
+}
+
+export function applyHazardZones(board: Piece[][], hazardCount: number): Piece[][] {
+  const positions = generateHazardPositions(hazardCount);
+  return stampHazardFlags(board, positions);
+}
+
+export function stampHazardFlags(board: Piece[][], positions: Set<string>): Piece[][] {
+  const newBoard = board.map(row => row.map(p => ({ ...p, hazard: false })));
+  for (const key of positions) {
+    const [r, c] = key.split(',').map(Number);
+    if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+      newBoard[r][c].hazard = true;
+    }
+  }
+  return newBoard;
 }
 
 export function hasPossibleMoves(board: Piece[][]): boolean {
