@@ -260,13 +260,28 @@ function App() {
       // Combo 链结束 → 输出汇总战报
       const acc = comboAccum.current;
       if (acc.deployed > 0) {
-        const deathCauses = [
+        const phase = getPhase(save.currentLevel);
+        const deathCauses = phase === 'PHASE_HUMAN' ? [
+          `协助${mission.scpSubject}测试后暂未归队`,
+          '实验过程中与团队失联',
+          '进入观察区域后未按时返回',
+          '在指定区域执行任务，等待确认',
+        ] : phase === 'PHASE_NUMBER' ? [
+          `接触${mission.scpSubject}后状态异常`,
+          '任务中出现不可控变量',
+          '观察区域环境超出安全阈值',
+          '生理指标偏离标准范围',
+        ] : phase === 'PHASE_BATCH' ? [
           `收容${mission.scpSubject}时遭受不可逆损伤`,
-          '执行任务中状态异常，已按协议处理',
+          '执行中状态异常，已按协议处理',
           '接触异常物品后生理指标归零',
-          '现场环境导致结构性损坏',
           '暴露于异常效应区域，未能撤离',
           '标准操作流程中发生意外折损',
+        ] : [
+          `PROC_${mission.scpSubject}_ERR`,
+          'STATUS: NULL',
+          'SIGNAL_LOST',
+          'Δ⁻ CONFIRMED',
         ];
         addLogEntry({
           type: 'deploy',
@@ -277,10 +292,17 @@ function App() {
           deathCause: acc.dead > 0 ? deathCauses[Math.floor(Math.random() * deathCauses.length)] : undefined,
           detail: acc.combos > 1 ? `${acc.combos}连收容行动` : undefined,
         });
-        // AI 实时评语 — combo 结束后
+        // AI 实时评语 — combo 结束后，写入战报+toast
         const aiTrigger = acc.combos >= 3 ? 'high_efficiency' : acc.dead > acc.survived ? 'low_efficiency' : 'after_match';
         const aiMsg = getAIComment(save.currentLevel, aiTrigger);
         if (aiMsg && !hesitationNotice) {
+          // 写入战报面板（永久记录）
+          addLogEntry({
+            type: 'system' as any,
+            scpName: '🤖 AI-HRMS',
+            detail: aiMsg,
+          });
+          // 同时显示底部toast
           setTimeout(() => {
             setHesitationNotice(aiMsg);
             setTimeout(() => setHesitationNotice(null), 3000);
@@ -301,17 +323,13 @@ function App() {
     const newCombo = currentCombo + 1;
     setCombo(newCombo);
 
-    // Show combo float (with casualty rate hint)
+    // Show combo float — 语气随phase变化
     if (newCombo >= 2) {
-      const texts = [
-        '效率++ 折损↓',
-        '高效处置! 折损率×0.8',
-        '卓越表现! 折损率×0.5',
-        '🏅 人海战术! 免折损',
-        '✅ 完美收容!',
-      ];
-      setComboFloat(texts[Math.min(newCombo - 2, texts.length - 1)]);
-      setTimeout(() => setComboFloat(null), 800);
+      const floatText = getComboText(newCombo, getPhase(save.currentLevel));
+      if (floatText) {
+        setComboFloat(floatText);
+        setTimeout(() => setComboFloat(null), 800);
+      }
     }
 
     if (newCombo >= 5) unlockAchievement('combo_master');
@@ -1294,9 +1312,9 @@ function App() {
             <AlertIcon size={14} /> 实时行动记录
           </div>
           <div className="battle-log-stats">
-            <span>总部署: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.deployed || 0), 0)}</span>
+            <span>{getTerm('deploy', getPhase(save.currentLevel))}: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.deployed || 0), 0)}</span>
             <span className="deploy-dead">{getTerm('death', getPhase(save.currentLevel))}: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.dead || 0), 0)}</span>
-            <span className="deploy-survivors">可回收: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.survived || 0), 0)}</span>
+            <span className="deploy-survivors">{getTerm('survive', getPhase(save.currentLevel))}: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.survived || 0), 0)}</span>
           </div>
           <div className="battle-log-list">
             {battleLog.length === 0 && (
@@ -1305,18 +1323,27 @@ function App() {
             {battleLog.map(entry => (
               <div key={entry.id} className={`battle-log-entry log-${entry.type}`}>
                 <div className="log-time">{entry.timestamp}</div>
-                {entry.type === 'deploy' && (
+                {entry.type === 'deploy' && (() => {
+                  const p = getPhase(save.currentLevel);
+                  const actionWord = p === 'PHASE_HUMAN' ? '实验协助' : p === 'PHASE_NUMBER' ? '收容作业' : p === 'PHASE_BATCH' ? '处置行动' : 'PROC';
+                  return (
                   <>
-                    <div className="log-title">📋 {entry.scpName} 收容行动{entry.detail ? ` (${entry.detail})` : ''}</div>
+                    <div className="log-title">📋 {entry.scpName} {actionWord}{entry.detail ? ` (${entry.detail})` : ''}</div>
                     <div className="log-detail">
-                      投入 <strong>{entry.deployed}</strong> 单位 |
-                      <span className="deploy-dead"> {getTerm('death', getPhase(save.currentLevel))} {entry.dead}</span> |
-                      <span className="deploy-survivors"> 可回收 {entry.survived}</span>
+                      {getTerm('deploy', p)} <strong>{entry.deployed}</strong> {getTerm('unitCounter', p)} |
+                      <span className="deploy-dead" style={{color: p === 'PHASE_HUMAN' ? '#86909c' : undefined}}> {getTerm('death', p)} {entry.dead}</span> |
+                      <span className="deploy-survivors"> {getTerm('survive', p)} {entry.survived}</span>
                     </div>
                     {entry.deathCause && entry.dead! > 0 && (
-                      <div className="log-cause">{getTerm('deathCauseLabel', getPhase(save.currentLevel))}: {entry.deathCause}</div>
+                      <div className="log-cause" style={{color: p === 'PHASE_HUMAN' ? '#86909c' : undefined}}>{getTerm('deathCauseLabel', p)}: {entry.deathCause}</div>
                     )}
                   </>
+                  );
+                })()}
+                {(entry as any).type === 'system' && (
+                  <div className="log-detail" style={{color: '#ab47bc', fontSize: 12, fontStyle: 'italic'}}>
+                    {entry.scpName}: {entry.detail}
+                  </div>
                 )}
                 {entry.type === 'breach' && (
                   <>
