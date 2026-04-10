@@ -31,25 +31,25 @@ const TERM_MAP: Record<TermKey, Record<DehumanPhase, string>> = {
     PHASE_HUMAN: '阵亡',
     PHASE_NUMBER: '损耗',
     PHASE_BATCH: '折旧',
-    PHASE_VOID: '减值',
+    PHASE_VOID: 'Δ⁻',
   },
   survive: {
     PHASE_HUMAN: '存活',
     PHASE_NUMBER: '可回收',
     PHASE_BATCH: '残余',
-    PHASE_VOID: '余量',
+    PHASE_VOID: 'Δ⁰',
   },
   inventory: {
     PHASE_HUMAN: 'D级库存',
     PHASE_NUMBER: '单位储备',
     PHASE_BATCH: '耗材库',
-    PHASE_VOID: '资源池',
+    PHASE_VOID: 'Σ',
   },
   unitCounter: {
     PHASE_HUMAN: '人',
     PHASE_NUMBER: '单位',
     PHASE_BATCH: '件',
-    PHASE_VOID: '单位',
+    PHASE_VOID: '',
   },
 };
 

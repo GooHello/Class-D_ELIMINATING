@@ -471,6 +471,27 @@ function App() {
         if (newTotal >= 1000) unlockAchievement('thousand');
         if (newTotal >= 10000) unlockAchievement('ten_thousand');
 
+        // "统计数字的暴政"— 里程碑具象化
+        const milestones: Record<number, string> = {
+          100: '100。大约是两节地铁车厢的乘客。',
+          300: '300。一架客机的满载人数。',
+          500: '500。如果他们站成一排，队伍有 350 米长。',
+          1000: '1000。一所中学的全部学生。',
+          1500: '1500。一个居民小区的住户。',
+          2000: '2000。一个小镇的人口。',
+          3000: '3000。一座体育馆。观众席上空无一人。',
+        };
+        for (const [threshold, text] of Object.entries(milestones)) {
+          const t = Number(threshold);
+          if (newTotal >= t && prev.totalConsumed < t) {
+            setTimeout(() => {
+              setHesitationNotice(text);
+              setTimeout(() => setHesitationNotice(null), 5000);
+            }, 1500);
+            break;
+          }
+        }
+
         if (newInventory <= 200 && prev.inventoryCount > 200) {
           setTimeout(() => setShowPurchase(true), 500);
         }
@@ -1214,6 +1235,10 @@ function App() {
         <span className="ticker-sep">|</span>
         <span>日期：{new Date().toLocaleDateString('zh-CN')}</span>
         <span className="ticker-sep">|</span>
+        <span>本站本月处理：{(save.totalConsumed * 7 + 12847).toLocaleString()} 单位</span>
+        <span className="ticker-sep">|</span>
+        <span>在线操作员：{Math.max(1, 23 - Math.floor(save.currentLevel / 3))} / 24</span>
+        <span className="ticker-sep">|</span>
         <span>活跃异常收容项：████</span>
         <span className="ticker-sep">|</span>
         <span className={`ticker-psych ${save.humanityScore >= 80 ? 'psych-high' : save.humanityScore >= 50 ? 'psych-mid' : save.humanityScore >= 20 ? 'psych-low' : 'psych-void'}`}>
@@ -1719,6 +1744,17 @@ function App() {
                 {'⭐'.repeat(Math.max(1, Math.min(5, 5 - (['S','A','B','C','D'].indexOf(lastRating) === -1 ? 3 : ['S','A','B','C','D'].indexOf(lastRating)))))}
                 {' '}效率评级：{lastRating === 'S' ? '卓越' : lastRating === 'A' ? '优秀' : lastRating === 'B' ? '良好' : lastRating === 'C' ? '合格' : '待改进'}
               </div>
+              {/* 官僚签章 */}
+              <div style={{marginTop: 12, padding: '8px 10px', borderTop: '1px solid #2e303a', fontSize: 10, color: '#4e5969', lineHeight: 1.8}}>
+                <div>审批编号：ARC-{new Date().getFullYear()}-{String(Math.floor(Math.random() * 90000) + 10000)}</div>
+                <div>审批人：{save.currentLevel >= 14 ? 'AI审查系统 v4.0（自动）' : save.currentLevel >= 10 ? 'AI审查系统 v3.0（预审通过）' : '伦理委员会（已审阅）'}</div>
+                <div>签发时间：{new Date().toLocaleString('zh-CN')}</div>
+                <div style={{marginTop: 4, fontStyle: 'italic', color: '#3a3d49'}}>
+                  免责声明：本报告中"折损""减值"等术语均为标准化运营用语，不暗示或代表任何主观价值判断。
+                  所有操作均在授权范围内执行，符合基金会《资源管理条例》第 ██ 条之规定。
+                  操作员对本报告的确认视为对上述内容的知情同意。
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={goNextLevel}>已阅，归档</button>
@@ -1832,10 +1868,21 @@ function App() {
                 ⚠ 任务失败时，已折损人员不予返还。
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-primary" onClick={confirmAllocation} disabled={allocatedDeploy < mission.minDeploy || allocatedDeploy > save.inventoryCount}>
-                批准调拨 ({allocatedDeploy} 人)
-              </button>
+            <div className="modal-footer" style={{flexDirection: save.currentLevel >= 16 ? 'column' : 'row', gap: 8}}>
+              {save.currentLevel >= 16 ? (
+                <>
+                  <button className="btn btn-primary" onClick={() => { setAllocatedDeploy(mission.suggestedDeploy); setTimeout(confirmAllocation, 100); }} style={{width: '100%', fontSize: 16, padding: '10px 0'}}>
+                    🤖 一键批准（系统推荐 {mission.suggestedDeploy} 人）
+                  </button>
+                  <button className="btn" onClick={confirmAllocation} style={{width: '100%', fontSize: 11, opacity: 0.5}} disabled={allocatedDeploy < mission.minDeploy || allocatedDeploy > save.inventoryCount}>
+                    手动批准 ({allocatedDeploy} 人)
+                  </button>
+                </>
+              ) : (
+                <button className="btn btn-primary" onClick={confirmAllocation} disabled={allocatedDeploy < mission.minDeploy || allocatedDeploy > save.inventoryCount}>
+                  批准调拨 ({allocatedDeploy} 人)
+                </button>
+              )}
             </div>
           </div>
         </div>
