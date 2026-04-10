@@ -47,7 +47,7 @@ export const defaultSave: GameSave = {
   unlockedAchievements: [],
   readEmails: [],
   ethicsReviewsPassed: 0,
-  inventoryCount: 3000,
+  inventoryCount: 500,
   kpiHistory: [],
   endingASeen: false,
   endingBSeen: false,

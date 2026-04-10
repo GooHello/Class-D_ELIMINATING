@@ -507,7 +507,7 @@ function App() {
           }
         }
 
-        if (newInventory <= 200 && prev.inventoryCount > 200) {
+        if (newInventory <= 80 && prev.inventoryCount > 80) {
           setTimeout(() => setShowPurchase(true), 500);
         }
 
@@ -823,14 +823,7 @@ function App() {
         setHesitationNotice(notice);
         setTimeout(() => setHesitationNotice(null), 5000);
       }
-      // Trigger ethics review for major beats
-      const review = ethicsReviews.find(e => e.triggerLevel === save.currentLevel);
-      if (review) {
-        setTimeout(() => {
-          setCurrentEthics(review);
-          setShowEthics(true);
-        }, 500);
-      }
+      // Ethics review already handled in handleLevelComplete — no duplicate trigger here
     }
 
     // Check email triggers
@@ -844,7 +837,6 @@ function App() {
   const retryLevel = useCallback(() => {
     const currentMission = getMission(save.currentLevel);
     setMission(currentMission);
-    setMovesLeft(currentMission.maxMoves);
     setTotalProgress(0); setGreenBuff(0);
     setLevelConsumed(0);
     setCombo(0);
@@ -854,6 +846,9 @@ function App() {
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
+    // 重试时重新显示调拨界面
+    setAllocatedDeploy(currentMission.suggestedDeploy);
+    setShowAllocation(true);
   }, [save.currentLevel]);
 
   // ========== ACTIVE SKILLS ==========
@@ -1184,9 +1179,9 @@ function App() {
   }, [showEthics, currentEthics, handleEthicsOption]);
 
   // ========== PURCHASE HANDLER ==========
-  // 补充量递减：3000 → 2500 → 2000 → 1500 → 1000 → 800(底线)
+  // 补充量递减：300 → 250 → 200 → 180 → 150 → 120(底线)
   const getPurchaseAmount = useCallback((count: number) => {
-    const amounts = [3000, 2500, 2000, 1500, 1000, 800];
+    const amounts = [300, 250, 200, 180, 150, 120];
     return amounts[Math.min(count, amounts.length - 1)];
   }, []);
 
@@ -1240,7 +1235,7 @@ function App() {
             🏅
           </div>
           <div className="scp-clearance">安保许可: ██</div>
-          <div className={`navbar-inventory ${save.inventoryCount <= 500 ? 'warning' : ''}`}>
+          <div className={`navbar-inventory ${save.inventoryCount <= 100 ? 'warning' : ''}`}>
             {getTerm('inventory', getPhase(save.currentLevel))}：{save.inventoryCount.toLocaleString()}
           </div>
         </div>
@@ -1607,7 +1602,7 @@ function App() {
               <div className="panel-header">📦 D级资源库存管理</div>
               <div className="panel-body">
                 <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                  <div style={{ fontSize: 48, fontWeight: 800, color: save.inventoryCount <= 500 ? '#f53f3f' : 'var(--oa-text)' }}>
+                  <div style={{ fontSize: 48, fontWeight: 800, color: save.inventoryCount <= 100 ? '#f53f3f' : 'var(--oa-text)' }}>
                     {save.inventoryCount.toLocaleString()}
                   </div>
                   <div style={{ fontSize: 13, color: '#86909c', marginTop: 4 }}>当前可用库存（单位）</div>
@@ -1616,8 +1611,8 @@ function App() {
                 <div style={{ fontSize: 13, lineHeight: 2.2 }}>
                   <div className="report-line"><span>初始配额</span><span>3,000</span></div>
                   <div className="report-line"><span>累计折旧</span><span style={{ color: '#f53f3f' }}>{save.totalConsumed.toLocaleString()}</span></div>
-                  <div className="report-line"><span>累计补充</span><span style={{ color: '#00b42a' }}>{Math.max(0, save.totalConsumed - 3000 + save.inventoryCount).toLocaleString()}</span></div>
-                  <div className="report-line"><span>库存状态</span><span>{save.inventoryCount > 1500 ? '🟢 充足' : save.inventoryCount > 500 ? '🟡 适中' : '🔴 紧缺'}</span></div>
+                  <div className="report-line"><span>累计补充</span><span style={{ color: '#00b42a' }}>{Math.max(0, save.totalConsumed - 500 + save.inventoryCount).toLocaleString()}</span></div>
+                  <div className="report-line"><span>库存状态</span><span>{save.inventoryCount > 300 ? '🟢 充足' : save.inventoryCount > 100 ? '🟡 适中' : '🔴 紧缺'}</span></div>
                 </div>
                 <hr className="report-divider" />
                 <div style={{ fontSize: 13, lineHeight: 2 }}>
