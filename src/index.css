@@ -1226,6 +1226,7 @@ body {
   padding: 5px 20px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0;
   font-family: "Consolas", "Courier New", monospace;
   letter-spacing: 0.5px;
