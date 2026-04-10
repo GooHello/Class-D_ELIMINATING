@@ -65,30 +65,49 @@ body {
 
 .navbar-tabs {
   display: flex;
-  margin-left: 32px;
-  gap: 2px;
+  margin-left: 24px;
+  gap: 4px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  padding: 3px;
 }
 
 .navbar-tab {
-  padding: 6px 16px;
-  border-radius: 4px 4px 0 0;
+  padding: 6px 14px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
-  color: var(--oa-nav-text);
+  color: #86909c;
   transition: all 0.2s;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   font-family: inherit;
+  position: relative;
+  white-space: nowrap;
 }
 
 .navbar-tab:hover {
-  background: rgba(255,255,255,0.08);
-  color: #fff;
+  background: rgba(255,255,255,0.06);
+  color: #c9cdd4;
+  border-color: rgba(255,255,255,0.08);
 }
 
 .navbar-tab.active {
-  background: rgba(255,255,255,0.12);
+  background: rgba(22, 93, 255, 0.2);
   color: #fff;
+  border-color: rgba(22, 93, 255, 0.4);
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(22, 93, 255, 0.15);
+}
+
+/* 首次进入时tab闪烁提示 */
+@keyframes tabHint {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 12px rgba(255, 125, 0, 0.4); }
+}
+.navbar-tab:not(.active) {
+  animation: tabHint 2s ease-in-out 3;
+  animation-delay: 3s;
 }
 
 .navbar-right {
@@ -154,14 +173,14 @@ body {
 
 /* ========== BATTLE LOG PANEL ========== */
 .battle-log-panel {
-  width: 240px;
-  min-width: 240px;
+  width: 288px;
+  min-width: 288px;
   background: #1d2129;
   border: 1px solid #2e303a;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  max-height: 400px;
+  max-height: 480px;
   overflow: hidden;
   font-family: "Consolas", "Courier New", monospace;
 }
@@ -169,9 +188,9 @@ body {
 .battle-log-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
-  font-size: 13px;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #ff7d00;
   border-bottom: 1px solid #2e303a;
@@ -181,8 +200,8 @@ body {
 .battle-log-stats {
   display: flex;
   justify-content: space-between;
-  padding: 6px 12px;
-  font-size: 11px;
+  padding: 8px 14px;
+  font-size: 13px;
   color: #86909c;
   border-bottom: 1px solid #1a1c24;
 }
@@ -195,29 +214,29 @@ body {
 }
 
 .battle-log-list::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 .battle-log-list::-webkit-scrollbar-track {
   background: transparent;
 }
 .battle-log-list::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 2px;
+  background: #444;
+  border-radius: 3px;
 }
 
 .battle-log-empty {
   color: #586069;
   font-style: italic;
-  font-size: 11px;
+  font-size: 13px;
   text-align: center;
-  padding: 24px 8px;
+  padding: 28px 10px;
 }
 
 .battle-log-entry {
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-bottom: 1px solid #1a1c24;
-  font-size: 11px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.7;
   color: #c9cdd4;
   animation: logSlideIn 0.3s ease-out;
 }
@@ -239,7 +258,7 @@ body {
 }
 
 .log-time {
-  font-size: 10px;
+  font-size: 11px;
   color: #586069;
   font-family: monospace;
 }
@@ -247,7 +266,7 @@ body {
 .log-title {
   font-weight: 600;
   color: #ff7d00;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .log-breach-title {
