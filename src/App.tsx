@@ -139,6 +139,8 @@ function App() {
   const [endingLines, setEndingLines] = useState<string[]>([]);
   const [showEndingBtn, setShowEndingBtn] = useState(false);
   const [endingBtnText, setEndingBtnText] = useState('[接受重新分类]');
+  const [currentEndingId, setCurrentEndingId] = useState<string | null>(null); // 当前结局ID
+  const [showParallelEndings, setShowParallelEndings] = useState(false); // 平行结局列表
   const [hasPlayerPiece, setHasPlayerPiece] = useState(false);
   const [uiDissolve, setUiDissolve] = useState(0); // 0=正常, 1~5=UI逐步消失阶段
   const [milestoneFlash, setMilestoneFlash] = useState<string | null>(null); // 沉没成本里程碑
@@ -1001,6 +1003,7 @@ function App() {
 
       // Select ending based on humanity score
       const ending = selectEnding(save.humanityScore);
+      setCurrentEndingId(ending.id);
 
       // Preamble: experiment reveal
       const preamble = [
@@ -1047,7 +1050,13 @@ function App() {
   }, [save, updateSave]);
 
   const handleEndingAccept = useCallback(() => {
-    // 结局结束 → 清除存档，从头开始新游戏
+    // 结局结束 → 先显示平行结局列表
+    if (!showParallelEndings) {
+      setShowParallelEndings(true);
+      return;
+    }
+    // 第二次点击：真正开始新游戏
+    setShowParallelEndings(false);
     setShowEndingA(false);
     setShowGlitch(false);
     setEndingLines([]);
@@ -1120,7 +1129,7 @@ function App() {
   triggerMidgameEndingRef.current = (endingId: string) => {
     const ending = getMidgameEnding(endingId);
     if (!ending) return;
-
+    setCurrentEndingId(endingId);
     setShowGlitch(true);
     setTimeout(() => {
       setShowGlitch(false);
@@ -2131,17 +2140,49 @@ function App() {
 
       {showEndingA && (
         <div className="ending-screen">
-          <div className="ending-text">
-            {endingLines.map((line, i) => (
-              <div key={i} className="ending-line" style={{ animationDelay: `${i * 0.1}s` }}>
-                {line || <br />}
+          {!showParallelEndings ? (
+            <>
+              <div className="ending-text">
+                {endingLines.map((line, i) => (
+                  <div key={i} className="ending-line" style={{ animationDelay: `${i * 0.1}s` }}>
+                    {line || <br />}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {showEndingBtn && (
-            <button className="ending-btn" onClick={handleEndingAccept}>
-              {endingBtnText}
-            </button>
+              {showEndingBtn && (
+                <button className="ending-btn" onClick={handleEndingAccept}>
+                  {endingBtnText}
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="parallel-endings">
+              <div className="parallel-title">已记录的平行结果</div>
+              <div className="parallel-subtitle">无论你怎么选择，系统都有准备好的出口。</div>
+              <div className="parallel-list">
+                {[
+                  { id: 'A', title: '觉醒', desc: '记住了不该记住的' },
+                  { id: 'B', title: '服从', desc: '成为了系统的一部分' },
+                  { id: 'C', title: '替代', desc: '被更高效的东西取代' },
+                  { id: 'D', title: '虚无', desc: '连名字都不剩' },
+                  { id: 'E', title: '抗命', desc: '试图反抗，被记录在案' },
+                  { id: 'F', title: '崩溃', desc: '思考太久，被判定为故障' },
+                  { id: 'G', title: '饥荒', desc: '资源耗尽，系统停摆' },
+                  { id: 'H', title: '效率奇点', desc: '证明了人类是多余的' },
+                  { id: 'I', title: '好奇害死猫', desc: '知道得太多' },
+                ].map(e => (
+                  <div key={e.id} className={`parallel-item ${currentEndingId === e.id ? 'current' : 'locked'}`}>
+                    <span className="parallel-id">结局 {e.id}</span>
+                    <span className="parallel-name">{currentEndingId === e.id ? e.title : '██████'}</span>
+                    <span className="parallel-desc">{currentEndingId === e.id ? e.desc : ''}</span>
+                    {currentEndingId === e.id && <span className="parallel-check">← 你的结局</span>}
+                  </div>
+                ))}
+              </div>
+              <button className="ending-btn" onClick={handleEndingAccept} style={{animationDelay: '0s', opacity: 1}}>
+                [ 重新开始 ]
+              </button>
+            </div>
           )}
         </div>
       )}

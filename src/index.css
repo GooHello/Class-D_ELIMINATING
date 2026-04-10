@@ -1093,6 +1093,91 @@ body {
   color: #000;
 }
 
+/* ========== PARALLEL ENDINGS LIST ========== */
+.parallel-endings {
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+.parallel-title {
+  font-family: "Consolas", monospace;
+  font-size: 18px;
+  color: #00ff41;
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+}
+
+.parallel-subtitle {
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  color: #4e5969;
+  margin-bottom: 24px;
+}
+
+.parallel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.parallel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid #1a1d23;
+  border-radius: 4px;
+  font-family: "Consolas", monospace;
+  font-size: 13px;
+  transition: all 0.3s;
+}
+
+.parallel-item.current {
+  border-color: #00ff41;
+  background: rgba(0, 255, 65, 0.05);
+}
+
+.parallel-item.locked {
+  opacity: 0.35;
+}
+
+.parallel-id {
+  color: #586069;
+  min-width: 50px;
+  text-align: left;
+}
+
+.parallel-item.current .parallel-id {
+  color: #00ff41;
+}
+
+.parallel-name {
+  color: #c9cdd4;
+  font-weight: 600;
+  min-width: 80px;
+  text-align: left;
+}
+
+.parallel-item.locked .parallel-name {
+  color: #2e303a;
+  letter-spacing: 2px;
+}
+
+.parallel-desc {
+  color: #86909c;
+  font-size: 11px;
+  flex: 1;
+  text-align: left;
+}
+
+.parallel-check {
+  color: #00ff41;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* ========== GLITCH EFFECT ========== */
 .glitch-overlay {
   position: fixed;
