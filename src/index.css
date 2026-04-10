@@ -34,49 +34,45 @@ body {
 }
 
 /* ========== NAV BAR ========== */
-.navbar {
+.site-header {
   background: var(--oa-nav);
   color: var(--oa-nav-text);
-  height: 48px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 0 20px;
-  font-size: 14px;
-  border-bottom: 1px solid #1a1d23;
+  padding: 12px 20px 8px;
+  border-bottom: 1px solid #2e303a;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 100;
+  gap: 8px;
 }
 
-.navbar-title {
+.header-title {
   font-weight: 600;
-  color: #fff;
-  letter-spacing: 0.5px;
+  color: #e8e8e8;
+  letter-spacing: 1px;
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
-.navbar-title .icon {
-  font-size: 18px;
-}
-
-.navbar-tabs {
+.header-tabs {
   display: flex;
-  margin-left: 24px;
   gap: 4px;
-  background: rgba(0,0,0,0.25);
-  border-radius: 6px;
-  padding: 3px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 4px;
 }
 
-.navbar-tab {
-  padding: 6px 14px;
-  border-radius: 4px;
+.header-tab {
+  padding: 8px 18px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   color: #86909c;
   transition: all 0.2s;
   border: 1px solid transparent;
@@ -86,18 +82,18 @@ body {
   white-space: nowrap;
 }
 
-.navbar-tab:hover {
+.header-tab:hover {
   background: rgba(255,255,255,0.06);
   color: #c9cdd4;
   border-color: rgba(255,255,255,0.08);
 }
 
-.navbar-tab.active {
-  background: rgba(22, 93, 255, 0.2);
+.header-tab.active {
+  background: rgba(22, 93, 255, 0.25);
   color: #fff;
-  border-color: rgba(22, 93, 255, 0.4);
+  border-color: rgba(22, 93, 255, 0.5);
   font-weight: 600;
-  box-shadow: 0 0 8px rgba(22, 93, 255, 0.15);
+  box-shadow: 0 0 10px rgba(22, 93, 255, 0.2);
 }
 
 /* 首次进入时tab闪烁提示 */
@@ -105,44 +101,32 @@ body {
   0%, 100% { box-shadow: none; }
   50% { box-shadow: 0 0 12px rgba(255, 125, 0, 0.4); }
 }
-.navbar-tab:not(.active) {
+.header-tab:not(.active) {
   animation: tabHint 2s ease-in-out 3;
   animation-delay: 3s;
 }
 
-.navbar-right {
-  margin-left: auto;
+.header-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  font-size: 13px;
+  color: #c9cdd4;
 }
 
-.navbar-badge {
-  position: relative;
-  cursor: pointer;
-  font-size: 18px;
-}
-
-.navbar-badge .dot {
-  position: absolute;
-  top: -4px;
-  right: -6px;
-  width: 8px;
-  height: 8px;
-  background: #f53f3f;
-  border-radius: 50%;
-}
-
-.navbar-inventory {
-  font-size: 12px;
-  color: #86909c;
-  background: rgba(255,255,255,0.06);
-  padding: 4px 12px;
+.header-info-item {
+  padding: 3px 10px;
   border-radius: 4px;
+  background: rgba(255,255,255,0.05);
   white-space: nowrap;
 }
 
-.navbar-inventory.warning {
+.header-inventory {
+  font-weight: 600;
+  color: #e8e8e8;
+}
+
+.header-inventory.warning {
   background: rgba(255, 167, 38, 0.2);
   color: #FFA726;
   animation: pulse 1s ease-in-out infinite;
@@ -1237,9 +1221,9 @@ body {
 /* ========== SCP TICKER BAR ========== */
 .scp-ticker {
   background: #1a1d23;
-  color: #586069;
-  font-size: 11px;
-  padding: 4px 20px;
+  color: #9da5b0;
+  font-size: 12px;
+  padding: 5px 20px;
   display: flex;
   align-items: center;
   gap: 0;
@@ -2004,7 +1988,12 @@ body {
   .game-status, .status-bar, .skill-bar {
     width: 340px;
   }
-  .navbar-tabs {
-    display: none;
+  .header-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .header-tab {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }

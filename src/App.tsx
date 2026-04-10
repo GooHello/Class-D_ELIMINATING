@@ -1230,14 +1230,14 @@ function App() {
   // ========== RENDER ==========
   return (
     <>
-      {/* ===== NAV BAR ===== */}
-      <nav className={`navbar ${uiDissolve >= 4 ? 'ui-dissolving' : ''}`}>
-        <div className="navbar-title">
+      {/* ===== HEADER ===== */}
+      <header className={`site-header ${uiDissolve >= 4 ? 'ui-dissolving' : ''}`}>
+        <div className="header-title">
           <span className="scp-logo">⚙</span>
           <span>SCP基金会 · Site-██ 人力资源终端</span>
           <span className="scp-version">BUILD 3.7.2</span>
         </div>
-        <div className="navbar-tabs">
+        <div className="header-tabs">
           {[
             { id: '工单', icon: '📋' },
             { id: '设施', icon: '🏗️' },
@@ -1247,23 +1247,23 @@ function App() {
           ].map(tab => (
             <button
               key={tab.id}
-              className={`navbar-tab ${activeTab === tab.id ? 'active' : ''}`}
+              className={`header-tab ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.id)}
             >
               {tab.icon} {tab.id}
             </button>
           ))}
         </div>
-        <div className="navbar-right">
-          <div className="navbar-badge" onClick={() => setShowAchievements(!showAchievements)}>
-            🏅
+        <div className="header-info">
+          <div className="header-info-item" onClick={() => setShowAchievements(!showAchievements)} style={{cursor:'pointer'}}>
+            🏅 成就
           </div>
-          <div className="scp-clearance">安保许可: ██</div>
-          <div className={`navbar-inventory ${save.inventoryCount <= 100 ? 'warning' : ''}`}>
+          <div className="header-info-item">安保许可: ██</div>
+          <div className={`header-info-item header-inventory ${save.inventoryCount <= 100 ? 'warning' : ''}`}>
             {getTerm('inventory', getPhase(save.currentLevel))}：{save.inventoryCount.toLocaleString()}
           </div>
         </div>
-      </nav>
+      </header>
 
       <div className={`scp-ticker ${uiDissolve >= 1 ? 'ui-dissolving' : ''}`}>
         <span>SECURE · CONTAIN · PROTECT</span>
