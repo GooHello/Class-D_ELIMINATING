@@ -18,7 +18,7 @@ import { achievements, systemBugMessages } from './data/achievements';
 import { loadSave, saveSave, defaultSave, type GameSave } from './systems/SaveManager';
 import { getLastWord, getWasteMessage } from './data/lastWords';
 import { generateFullProfile, clearProfileCache, type DClassProfile } from './data/professions';
-import { getPhase, getTerm, getPhaseTransitionNotice } from './data/terminology';
+import { getPhase, getTerm, getPhaseTransitionNotice, getComboText, getLogTone } from './data/terminology';
 import { selectEnding, getMidgameEnding } from './data/endings';
 import { getAIComment } from './data/aiComments';
 import { calculateWeightedProgress, calculateCasualtyRate, getStepCost, COLOR_BONUSES, calculateColorPassives } from './data/colorBonuses';
@@ -1295,7 +1295,7 @@ function App() {
           </div>
           <div className="battle-log-stats">
             <span>总部署: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.deployed || 0), 0)}</span>
-            <span className="deploy-dead">折旧: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.dead || 0), 0)}</span>
+            <span className="deploy-dead">{getTerm('death', getPhase(save.currentLevel))}: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.dead || 0), 0)}</span>
             <span className="deploy-survivors">可回收: {battleLog.filter(l => l.type === 'deploy').reduce((s, l) => s + (l.survived || 0), 0)}</span>
           </div>
           <div className="battle-log-list">
@@ -1310,11 +1310,11 @@ function App() {
                     <div className="log-title">📋 {entry.scpName} 收容行动{entry.detail ? ` (${entry.detail})` : ''}</div>
                     <div className="log-detail">
                       投入 <strong>{entry.deployed}</strong> 单位 |
-                      <span className="deploy-dead"> 折旧 {entry.dead}</span> |
+                      <span className="deploy-dead"> {getTerm('death', getPhase(save.currentLevel))} {entry.dead}</span> |
                       <span className="deploy-survivors"> 可回收 {entry.survived}</span>
                     </div>
                     {entry.deathCause && entry.dead! > 0 && (
-                      <div className="log-cause">折旧原因: {entry.deathCause}</div>
+                      <div className="log-cause">{getTerm('deathCauseLabel', getPhase(save.currentLevel))}: {entry.deathCause}</div>
                     )}
                   </>
                 )}
@@ -1509,13 +1509,13 @@ function App() {
                 </div>
                 <div className="panel-body">
                   <div className="kpi-grid">
-                    <div className="kpi-item"><div className="kpi-value">{save.dailyConsumed}</div><div className="kpi-label">今日折旧</div></div>
-                    <div className="kpi-item"><div className="kpi-value">{save.totalConsumed.toLocaleString()}</div><div className="kpi-label">累计折旧</div></div>
-                    <div className="kpi-item"><div className="kpi-rating">{lastRating}</div><div className="kpi-label">效率评级</div></div>
+                    <div className="kpi-item"><div className="kpi-value">{save.dailyConsumed}</div><div className="kpi-label">{getTerm('dailyConsumed', getPhase(save.currentLevel))}</div></div>
+                    <div className="kpi-item"><div className="kpi-value">{save.totalConsumed.toLocaleString()}</div><div className="kpi-label">{getTerm('totalConsumed', getPhase(save.currentLevel))}</div></div>
+                    <div className="kpi-item"><div className="kpi-rating">{lastRating}</div><div className="kpi-label">{getTerm('kpiRatingLabel', getPhase(save.currentLevel))}</div></div>
                     <div className="kpi-item"><div className="kpi-value">{save.inventoryCount.toLocaleString()}</div><div className="kpi-label">库存余量</div></div>
                   </div>
                   <div className="kpi-quota">
-                    <div className="kpi-quota-text"><span>月度折旧指标</span><span>{Math.floor(quotaProgress)}%</span></div>
+                    <div className="kpi-quota-text"><span>{getTerm('quotaLabel', getPhase(save.currentLevel))}</span><span>{Math.floor(quotaProgress)}%</span></div>
                     <div className="kpi-quota-bar"><div className="kpi-quota-fill" style={{ width: `${quotaProgress}%` }} /></div>
                   </div>
                   {wasteCount > 0 && (
@@ -1634,7 +1634,7 @@ function App() {
                 <hr className="report-divider" />
                 <div style={{ fontSize: 13, lineHeight: 2.2 }}>
                   <div className="report-line"><span>初始配额</span><span>3,000</span></div>
-                  <div className="report-line"><span>累计折旧</span><span style={{ color: '#f53f3f' }}>{save.totalConsumed.toLocaleString()}</span></div>
+                  <div className="report-line"><span>{getTerm('totalConsumed', getPhase(save.currentLevel))}</span><span style={{ color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f' }}>{save.totalConsumed.toLocaleString()}</span></div>
                   <div className="report-line"><span>累计补充</span><span style={{ color: '#00b42a' }}>{Math.max(0, save.totalConsumed - 500 + save.inventoryCount).toLocaleString()}</span></div>
                   <div className="report-line"><span>库存状态</span><span>{save.inventoryCount > 300 ? '🟢 充足' : save.inventoryCount > 100 ? '🟡 适中' : '🔴 紧缺'}</span></div>
                 </div>
@@ -1679,7 +1679,7 @@ function App() {
                   {save.kpiHistory.slice(-8).reverse().map((h, i) => (
                     <div key={i} className="report-line">
                       <span>第{h.level}关</span>
-                      <span>折旧 {h.consumed} | 评级 {h.rating}</span>
+                      <span>{getTerm('death', getPhase(save.currentLevel))} {h.consumed} | {getTerm('kpiRatingLabel', getPhase(save.currentLevel))} {h.rating}</span>
                     </div>
                   ))}
                 </div>
@@ -1743,20 +1743,20 @@ function App() {
         <div className="modal-overlay">
           <div className="modal report-modal">
             <div className="report-content">
-              <div className="report-title">SCP基金会实验结算报告</div>
+              <div className="report-title">{getTerm('reportTitle', getPhase(save.currentLevel))}</div>
               <div className="report-line"><span>工单编号：</span><span>{mission.id}</span></div>
               <div className="report-line"><span>实验对象：</span><span>{mission.scpSubject}</span></div>
               <div className="report-line"><span>安保等级：</span><span>{'●'.repeat(mission.securityLevel)}{'○'.repeat(5 - mission.securityLevel)}</span></div>
               <div className="report-line"><span>日　　期：</span><span>{new Date().toLocaleDateString('zh-CN')}</span></div>
               <hr className="report-divider" />
-              <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ 人员统计</div>
-              <div className="report-line"><span>调拨人数：</span><span>{allocatedDeploy}</span></div>
+              <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ {getTerm('unit', getPhase(save.currentLevel))}统计</div>
+              <div className="report-line"><span>{getTerm('deploy', getPhase(save.currentLevel))}人数：</span><span>{allocatedDeploy}</span></div>
               <div className="report-line"><span>实际投入：</span><span>{allocatedDeploy - movesLeft}</span></div>
-              <div className="report-line"><span>实际折损：</span><span style={{color: '#f53f3f'}}>{levelDeaths}</span></div>
-              <div className="report-line"><span>存活回收：</span><span style={{color: '#00b42a'}}>{levelSurvived}</span></div>
+              <div className="report-line"><span>{getTerm('death', getPhase(save.currentLevel))}：</span><span style={{color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f'}}>{levelDeaths}</span></div>
+              <div className="report-line"><span>{getTerm('survive', getPhase(save.currentLevel))}：</span><span style={{color: '#00b42a'}}>{levelSurvived}</span></div>
               <div className="report-line"><span>未使用归还：</span><span>{movesLeft}</span></div>
-              <div className="report-line"><span>净消耗：</span><span style={{fontWeight: 700, color: '#f53f3f'}}>{levelDeaths}</span></div>
-              <div className="report-line"><span>折损率：</span><span style={{color: ((levelDeaths + levelSurvived) > 0 && levelDeaths / (levelDeaths + levelSurvived) > 0.5) ? '#f53f3f' : '#86909c'}}>{((levelDeaths + levelSurvived) > 0 ? (levelDeaths / (levelDeaths + levelSurvived) * 100).toFixed(1) : '0')}%</span></div>
+              <div className="report-line"><span>{getTerm('netLoss', getPhase(save.currentLevel))}：</span><span style={{fontWeight: 700, color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f'}}>{levelDeaths}</span></div>
+              <div className="report-line"><span>{getTerm('casualtyRate', getPhase(save.currentLevel))}：</span><span style={{color: ((levelDeaths + levelSurvived) > 0 && levelDeaths / (levelDeaths + levelSurvived) > 0.5) ? '#f53f3f' : '#86909c'}}>{((levelDeaths + levelSurvived) > 0 ? (levelDeaths / (levelDeaths + levelSurvived) * 100).toFixed(1) : '0')}%</span></div>
               <hr className="report-divider" />
               <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ 作业数据</div>
               <div className="report-line"><span>最大连锁：</span><span>{levelMaxCombo > 0 ? `${levelMaxCombo}x combo` : '无连锁'}</span></div>
@@ -1766,7 +1766,7 @@ function App() {
                   {Object.entries(levelColorCounts).filter(([,v]) => v > 0).map(([c, v]) => `${COLOR_BONUSES[c as PieceColor]?.label || c}×${v}`).join(' / ')}
                 </span></div>
               )}
-              <div className="report-line"><span>累计消耗：</span><span style={{fontWeight: 600}}>{save.totalConsumed.toLocaleString()} 人</span></div>
+              <div className="report-line"><span>{getTerm('totalConsumed', getPhase(save.currentLevel))}：</span><span style={{fontWeight: 600}}>{save.totalConsumed.toLocaleString()} {getTerm('unitCounter', getPhase(save.currentLevel))}</span></div>
               <hr className="report-divider" />
               <div className="report-conclusion">{mission.rewardText}</div>
               {mission.secondaryObjective && (
@@ -1803,7 +1803,7 @@ function App() {
                 <div>审批人：{save.currentLevel >= 14 ? 'AI审查系统 v4.0（自动）' : save.currentLevel >= 10 ? 'AI审查系统 v3.0（预审通过）' : '伦理委员会（已审阅）'}</div>
                 <div>签发时间：{new Date().toLocaleString('zh-CN')}</div>
                 <div style={{marginTop: 4, fontStyle: 'italic', color: '#3a3d49'}}>
-                  免责声明：本报告中"折损""减值"等术语均为标准化运营用语，不暗示或代表任何主观价值判断。
+                  {getTerm('disclaimer', getPhase(save.currentLevel))}
                   所有操作均在授权范围内执行，符合基金会《资源管理条例》第 ██ 条之规定。
                   操作员对本报告的确认视为对上述内容的知情同意。
                 </div>
@@ -1820,24 +1820,24 @@ function App() {
       {showFailed && (
         <div className="modal-overlay">
           <div className="modal">
-            <div className="modal-header" style={{color: '#f53f3f'}}>📋 工单执行失败报告</div>
+            <div className="modal-header" style={{color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f'}}>📋 {getTerm('missionFailed', getPhase(save.currentLevel))}</div>
             <div className="modal-body">
               <div className="failed-text">
-                <p style={{fontSize: 14, fontWeight: 600}}>可用人员已全部投入，工单目标未完成。</p>
+                <p style={{fontSize: 14, fontWeight: 600}}>{getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '派遣人员已全部投入，实验目标未完成。' : '可用资源已全部投入，工单目标未完成。'}</p>
                 <div style={{margin: '10px 0', padding: '8px', background: 'rgba(245,63,63,0.06)', borderRadius: 4, fontSize: 12, lineHeight: 1.8}}>
                   <div>进度：{Math.round((totalProgress / (mission?.targetProgress || 1)) * 100)}% / 100%</div>
-                  <div>已折损：{levelDeaths} 人 | 存活回收：{levelSurvived} 人</div>
+                  <div>{getTerm('death', getPhase(save.currentLevel))}：{levelDeaths} {getTerm('unitCounter', getPhase(save.currentLevel))} | {getTerm('survive', getPhase(save.currentLevel))}：{levelSurvived} {getTerm('unitCounter', getPhase(save.currentLevel))}</div>
                   <div>最大连锁：{levelMaxCombo}</div>
                 </div>
                 <p style={{ marginTop: 8, fontSize: 11, color: '#86909c' }}>
-                  连续未达标将影响年度绩效评级。已折损人员不予返还。
+                  {getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '请重新安排人员。' : '连续未达标将影响年度绩效评级。'}
                 </p>
               </div>
             </div>
             <div className="modal-footer" style={{flexDirection: 'column', gap: 8}}>
               {!emergencyUsed && save.inventoryCount >= 5 && (
                 <button className="btn" onClick={useEmergencyRecruit} style={{width: '100%', borderColor: '#ff7d00', color: '#ff7d00'}}>
-                  🚨 紧急征召（+3步 / 消耗库存5人）
+                  🚨 {getTerm('emergencyRecruit', getPhase(save.currentLevel))}（+3步 / 消耗{getTerm('inventory', getPhase(save.currentLevel))}5{getTerm('unitCounter', getPhase(save.currentLevel))}）
                 </button>
               )}
               <button className="btn btn-primary" onClick={retryLevel} style={{width: '100%'}}>重新派遣</button>
@@ -1928,15 +1928,15 @@ function App() {
 
               <div style={{display: 'flex', gap: 8, marginBottom: 10}}>
                 <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
-                  <div style={{color: '#86909c'}}>预估折损率</div>
+                  <div style={{color: '#86909c'}}>{getTerm('estimateLoss', getPhase(save.currentLevel))}</div>
                   <div style={{fontWeight: 600, color: mission.securityLevel >= 4 ? '#f53f3f' : '#ff7d00'}}>{(mission.securityLevel * 15)}%</div>
                 </div>
                 <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
-                  <div style={{color: '#86909c'}}>预估伤亡</div>
+                  <div style={{color: '#86909c'}}>{getTerm('estimateCasualty', getPhase(save.currentLevel))}</div>
                   <div style={{fontWeight: 600}}>{mission.casualtyEstimate}</div>
                 </div>
                 <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
-                  <div style={{color: '#86909c'}}>调拨后库存</div>
+                  <div style={{color: '#86909c'}}>{getTerm('postDeployInventory', getPhase(save.currentLevel))}</div>
                   <div style={{fontWeight: 600, color: (save.inventoryCount - actualDeploy) < 50 ? '#f53f3f' : '#00b42a'}}>{(save.inventoryCount - actualDeploy).toLocaleString()}</div>
                 </div>
               </div>
