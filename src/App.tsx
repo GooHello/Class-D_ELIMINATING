@@ -1549,8 +1549,11 @@ function App() {
           </div>
 
           <div className="game-status">
+            <span style={{ color: '#86909c', fontSize: 12 }}>
+              总派遣: {allocatedDeploy}
+            </span>
             <span className={`moves-left ${movesLeft <= 5 ? 'low' : ''}`}>
-              步数剩余: {movesLeft}
+              剩余: {movesLeft}
             </span>
             <span className={`combo-display ${combo > 1 ? 'active' : ''}`}>
               {combo > 1 ? `COMBO ×${combo}` : ''}
