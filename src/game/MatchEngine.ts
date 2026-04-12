@@ -52,6 +52,7 @@ export function createBoard(): Piece[][] {
       while (hasInitialMatch(board, r, c, piece.color)) {
         piece = createPiece(r, c);
       }
+      piece.isNew = false; // 初始棋子不是"新落入"的
       board[r][c] = piece;
     }
   }
