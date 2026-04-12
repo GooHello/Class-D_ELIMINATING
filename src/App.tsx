@@ -163,6 +163,7 @@ function App() {
   const hesitationFired = useRef(false); // 同一思考期内只计一次
   const levelStartTime = useRef(Date.now());
   const levelHesitations = useRef(0);
+  const levelHesitationRecovery = useRef(0);
   const handleLevelCompleteRef = useRef<(finalProgress: Record<PieceColor, number>, consumed: number) => void>(() => {});
 
   // ========== PERSIST ==========
@@ -377,6 +378,7 @@ function App() {
     setRemovingCells(toRemoveKeys);
 
     setTimeout(() => {
+      try {
       const { newBoard, removed } = removeMatches(currentBoard, matches);
       const colorCounts = getColorCounts(removed);
       const totalRemoved = removed.length;
@@ -638,6 +640,11 @@ function App() {
         }
         processMatches(filledBoard, newCombo, updatedProgressValue, newConsumed, depth + 1);
       }, 350);
+      } catch (err) {
+        console.error('[processMatches] unexpected error, releasing animation lock:', err);
+        setIsAnimating(false);
+        setCombo(0);
+      }
     }, 300);
   }, [save, updateSave, unlockAchievement, triggerSystemBug, checkLevelComplete, mission, addLogEntry, greenBuff]);
 
@@ -860,6 +867,7 @@ function App() {
     setBattleLog([]);
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
+    levelHesitationRecovery.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
 
@@ -947,6 +955,7 @@ function App() {
     setLevelColorCounts({});
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
+    levelHesitationRecovery.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
     // 重试时重新显示调拨界面
@@ -1243,6 +1252,7 @@ function App() {
     setLevelColorCounts({});
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
+    levelHesitationRecovery.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
   }, [updateSave, showParallelEndings, save.humanityScore, save.cycleCount]);
