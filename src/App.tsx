@@ -94,6 +94,10 @@ function App() {
   const [hoveredProfile, setHoveredProfile] = useState<DClassProfile | null>(null);
   const [showBreach, setShowBreach] = useState(false);
 
+  // ========== 人性指数变动闪烁 ==========
+  const [humanityFlash, setHumanityFlash] = useState<'up' | 'down' | null>(null);
+  const prevHumanityRef = useRef(save.humanityScore);
+
   // ========== 技能解锁叙事系统 ==========
   const [showSkillNarrative, setShowSkillNarrative] = useState(false);
   const [currentSkillNarrative, setCurrentSkillNarrative] = useState<{ id: string; title: string; lines: string[]; skillName: string } | null>(null);
@@ -269,6 +273,18 @@ function App() {
       levelConsumedState: levelConsumed,
     }));
   }, [board, totalProgress, movesLeft, levelConsumed]);
+
+  // ========== HUMANITY FLASH EFFECT ==========
+  useEffect(() => {
+    const prev = prevHumanityRef.current;
+    const curr = save.humanityScore;
+    if (curr !== prev) {
+      setHumanityFlash(curr > prev ? 'up' : 'down');
+      prevHumanityRef.current = curr;
+      const timer = setTimeout(() => setHumanityFlash(null), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [save.humanityScore]);
 
   // ========== ACHIEVEMENT CHECK ==========
   const unlockAchievement = useCallback((id: string) => {
@@ -1570,7 +1586,7 @@ function App() {
         <span className="ticker-sep">|</span>
         <span>在线：{Math.max(1, 23 - Math.floor(save.currentLevel / 3))} / 24</span>
         <span className="ticker-sep">|</span>
-        <span className={`ticker-psych ${save.humanityScore >= 80 ? 'psych-high' : save.humanityScore >= 50 ? 'psych-mid' : save.humanityScore >= 20 ? 'psych-low' : 'psych-void'}`}>
+        <span className={`ticker-psych ${save.humanityScore >= 80 ? 'psych-high' : save.humanityScore >= 50 ? 'psych-mid' : save.humanityScore >= 20 ? 'psych-low' : 'psych-void'} ${humanityFlash === 'up' ? 'psych-flash-up' : humanityFlash === 'down' ? 'psych-flash-down' : ''}`}>
           心理基线：{save.humanityScore >= 80 ? '正常' : save.humanityScore >= 50 ? '偏移' : save.humanityScore >= 20 ? '异常' : '——'}
         </span>
       </div>

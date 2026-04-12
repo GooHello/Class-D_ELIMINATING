@@ -1585,6 +1585,22 @@ body {
 .psych-low { color: #f53f3f; }
 .psych-void { color: #908c84; }
 
+/* 人性指数变动闪烁 */
+.psych-flash-up {
+  animation: psych-pulse-up 1.5s ease-out;
+}
+.psych-flash-down {
+  animation: psych-pulse-down 1.5s ease-out;
+}
+@keyframes psych-pulse-up {
+  0% { background: rgba(0,180,42,0.35); box-shadow: 0 0 8px rgba(0,180,42,0.4); }
+  100% { background: transparent; box-shadow: none; }
+}
+@keyframes psych-pulse-down {
+  0% { background: rgba(245,63,63,0.35); box-shadow: 0 0 8px rgba(245,63,63,0.4); }
+  100% { background: transparent; box-shadow: none; }
+}
+
 .scp-logo {
   font-size: 20px;
   color: #ff7d00;
