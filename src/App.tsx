@@ -58,6 +58,7 @@ function App() {
   const [hazardPositions, setHazardPositions] = useState<Set<string>>(new Set());
   // 红色压制协议: 冻结行
   const [frozenRows, setFrozenRows] = useState<Set<number>>(new Set());
+  const [extraMovesCostMultiplier, setExtraMovesCostMultiplier] = useState(1); // 库存消耗倍率（追加派遣令）
   const [isAnimating, setIsAnimating] = useState(false);
   const [removingCells, setRemovingCells] = useState<Set<string>>(new Set());
   const [removeAnimClass, setRemoveAnimClass] = useState('removing'); // 当前消除动画 class
@@ -1071,7 +1072,6 @@ function App() {
   const [shuffleDebuff, setShuffleDebuff] = useState(0); // 剩余步数：进度 -30%
   const [purgeDebuffColor, setPurgeDebuffColor] = useState<PieceColor | null>(null);
   const [purgeDebuffSteps, setPurgeDebuffSteps] = useState(0); // 剩余步数：该颜色不产生进度
-  const [extraMovesCostMultiplier, setExtraMovesCostMultiplier] = useState(1); // 库存消耗倍率
 
   const useSkillShuffle = useCallback(() => {
     if (isAnimating || skillCooldowns.shuffle > 0) return;
