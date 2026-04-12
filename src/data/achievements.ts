@@ -80,6 +80,63 @@ export const achievements: Achievement[] = [
     desc: '完成50个工单（如果还能称之为"完成"的话）',
     icon: '🏆',
   },
+  {
+    id: 'five_thousand',
+    name: '标准化流程',
+    desc: '累计消耗5,000名D级人员',
+    icon: '📉',
+  },
+  {
+    id: 'silent_audit',
+    name: '已阅',
+    desc: '完成季度人员处置报告审阅',
+    icon: '☑️',
+  },
+  {
+    id: 'emergency_recruit',
+    name: '紧急征召',
+    desc: '使用紧急征召令将他人推入绝境',
+    icon: '🚨',
+  },
+  {
+    id: 'full_purge',
+    name: '种族清洗',
+    desc: '使用全面清洗消除15名以上同色单位',
+    icon: '☢️',
+    hidden: true,
+  },
+  {
+    id: 'waste_zero',
+    name: '零浪费',
+    desc: '某关中所有消除的人员均未存活',
+    icon: '♻️',
+    hidden: true,
+  },
+  {
+    id: 'hazard_clear',
+    name: '高危作业',
+    desc: '在高危区域完成一次3连消以上',
+    icon: '⚠️',
+  },
+  {
+    id: 's_rating_3',
+    name: '模范员工',
+    desc: '连续3关获得S评级',
+    icon: '⭐',
+  },
+  {
+    id: 'player_piece_dead',
+    name: '……',
+    desc: '你自己也被消耗了',
+    icon: '💀',
+    hidden: true,
+  },
+  {
+    id: 'ending_seen',
+    name: '到此为止',
+    desc: '到达任意结局',
+    icon: '🚪',
+  },
 ];
 
 // 偶发系统Bug消息

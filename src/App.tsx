@@ -470,7 +470,7 @@ function App() {
 
       // === SPEECH BUBBLE on elimination (max 1 per match, no overlap) ===
       if (removed.length > 0) {
-        const word = getLastWord(getPhase(save.currentLevel));
+        const word = getLastWord(getPhase(save.currentLevel), save.currentLevel);
         if (word) {
           const piece = removed[Math.floor(removed.length / 2)]; // pick middle piece
           const bx = piece.col * 62 + 30;
@@ -1219,11 +1219,22 @@ function App() {
     setDisabledOptionClicks(0);
     setConsecutiveSRatings(0);
     setSkillCooldowns({ shuffle: 0, purge: 0, extraMoves: 0 });
+    setShowAllocation(true);
+    setAllocatedDeploy(firstMission.suggestedDeploy);
+    setShowSilentLevel(false);
+    setEmergencyUsed(false);
+    setEmergencyRecruits([]);
+    setShowEmergencyConfirm(false);
+    setLevelDeaths(0);
+    setLevelSurvived(0);
+    setLevelMaxCombo(0);
+    setLevelSkillsUsed(0);
+    setLevelColorCounts({});
     levelStartTime.current = Date.now();
     levelHesitations.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
-  }, [updateSave]);
+  }, [updateSave, showParallelEndings, save.humanityScore, save.cycleCount]);
 
   // ========== EMAIL READING ==========
   const handleEmailClick = useCallback((emailId: string) => {
@@ -1421,30 +1432,22 @@ function App() {
           ))}
         </div>
         <div className="header-info">
-          <div className="header-info-item" onClick={() => setShowAchievements(!showAchievements)} style={{cursor:'pointer'}}>
-            🏅 成就
-          </div>
-          <div className="header-info-item">安保许可: ██</div>
+          <div className="header-info-item">安保许可: ██ | 收容项: ████</div>
           <div className={`header-info-item header-inventory ${save.inventoryCount <= 100 ? 'warning' : ''}`}>
             {getTerm('inventory', getPhase(save.currentLevel))}：{save.inventoryCount.toLocaleString()}
+          </div>
+          <div className="header-info-item header-achievement-btn" onClick={() => setShowAchievements(!showAchievements)} style={{cursor:'pointer'}}>
+            🏅 {save.achievements?.length || 0}
           </div>
         </div>
       </header>
 
       <div className={`scp-ticker ${uiDissolve >= 1 ? 'ui-dissolving' : ''}`}>
-        <span>SECURE · CONTAIN · PROTECT</span>
+        <span>操作员：{save.playerOperatorId}{save.cycleCount > 0 ? ` (轮换 #${save.cycleCount + 1})` : ''}</span>
         <span className="ticker-sep">|</span>
-        <span>站点状态：正常运转</span>
+        <span>本站处理：{(save.totalConsumed * 7 + 12847).toLocaleString()} 单位</span>
         <span className="ticker-sep">|</span>
-        <span>当前操作员：{save.playerOperatorId}{save.cycleCount > 0 ? ` (轮换 #${save.cycleCount + 1})` : ''}</span>
-        <span className="ticker-sep">|</span>
-        <span>日期：{new Date().toLocaleDateString('zh-CN')}</span>
-        <span className="ticker-sep">|</span>
-        <span>本站本月处理：{(save.totalConsumed * 7 + 12847).toLocaleString()} 单位</span>
-        <span className="ticker-sep">|</span>
-        <span>在线操作员：{Math.max(1, 23 - Math.floor(save.currentLevel / 3))} / 24</span>
-        <span className="ticker-sep">|</span>
-        <span>活跃异常收容项：████</span>
+        <span>在线：{Math.max(1, 23 - Math.floor(save.currentLevel / 3))} / 24</span>
         <span className="ticker-sep">|</span>
         <span className={`ticker-psych ${save.humanityScore >= 80 ? 'psych-high' : save.humanityScore >= 50 ? 'psych-mid' : save.humanityScore >= 20 ? 'psych-low' : 'psych-void'}`}>
           心理基线：{save.humanityScore >= 80 ? '正常' : save.humanityScore >= 50 ? '偏移' : save.humanityScore >= 20 ? '异常' : '——'}

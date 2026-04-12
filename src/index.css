@@ -124,6 +124,18 @@ body {
   white-space: nowrap;
 }
 
+.header-achievement-btn {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--oa-border);
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.header-achievement-btn:hover {
+  background: var(--oa-card-hover);
+}
+
 .header-inventory {
   color: var(--oa-text);
 }
