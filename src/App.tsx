@@ -1509,6 +1509,23 @@ function App() {
 
         {/* ===== GAME AREA (CENTER) ===== */}
         <div className={`game-area ${uiDissolve >= 5 ? 'ui-dissolving' : ''}`}>
+          {/* ── Top info row: compact status ── */}
+          <div className="game-status-compact">
+            <span className={`moves-left ${movesLeft <= 5 ? 'low' : ''}`}>
+              {movesLeft}<span className="moves-total">/{allocatedDeploy}</span>
+            </span>
+            <span className={`combo-display ${combo > 1 ? 'active' : ''}`}>
+              {combo > 1 ? `×${combo}` : ''}
+            </span>
+            {save.currentLevel >= 5 && save.totalConsumed > 0 && (
+              <span className="silent-counter-inline">
+                <span className="silent-number-inline">{save.totalConsumed.toLocaleString()}</span>
+                {milestoneFlash && <span className="silent-milestone-inline">{milestoneFlash}</span>}
+              </span>
+            )}
+          </div>
+
+          {/* ── Board ── */}
           <div className="board-container">
             <div className="board-grid">
               {board.map((row, r) =>
@@ -1546,86 +1563,52 @@ function App() {
               </div>
             ))}
             {comboFloat && <div className="combo-float">{comboFloat}</div>}
-          </div>
 
-          <div className="game-status">
-            <span style={{ color: '#86909c', fontSize: 12 }}>
-              总派遣: {allocatedDeploy}
-            </span>
-            <span className={`moves-left ${movesLeft <= 5 ? 'low' : ''}`}>
-              剩余: {movesLeft}
-            </span>
-            <span className={`combo-display ${combo > 1 ? 'active' : ''}`}>
-              {combo > 1 ? `COMBO ×${combo}` : ''}
-            </span>
-          </div>
-
-          <div className="status-bar">
-          </div>
-
-          {/* ===== THE NUMBER (沉没成本计数器) ===== */}
-          {save.currentLevel >= 5 && save.totalConsumed > 0 && (
-            <div className="silent-counter">
-              <span className="silent-number">{save.totalConsumed.toLocaleString()}</span>
-              {milestoneFlash && (
-                <span className="silent-milestone">{milestoneFlash}</span>
-              )}
-            </div>
-          )}
-
-          {/* ===== HOVER PROFILE PANEL ===== */}
-          <div className="profile-panel">
-            {hoveredProfile ? (
-              hoveredProfile.phaseLabel ? (
-                <span className="profile-phase-label">{hoveredProfile.phaseLabel}</span>
-              ) : (
-                <>
-                  <div className="profile-header">
+            {/* ── Hover profile tooltip (floating) ── */}
+            {hoveredProfile && (
+              <div className="profile-tooltip">
+                {hoveredProfile.phaseLabel ? (
+                  <span>{hoveredProfile.phaseLabel}</span>
+                ) : (
+                  <>
                     <span className="profile-id">{hoveredProfile.id}</span>
-                    {hoveredProfile.name && <span className="profile-name">{hoveredProfile.name}</span>}
-                    {hoveredProfile.formerJob && <span className="profile-job">前: {hoveredProfile.formerJob}</span>}
-                  </div>
-                  {hoveredProfile.reason && <div className="profile-reason">入站原因: {hoveredProfile.reason}</div>}
-                  {hoveredProfile.personalDetail && <div className="profile-detail" style={{ fontSize: 11, color: '#86909c', marginTop: 4 }}>备注: {hoveredProfile.personalDetail}</div>}
-                </>
-              )
-            ) : (
-              <span className="profile-empty">[ 将鼠标移至{getTerm('unit', getPhase(save.currentLevel))}上方以查看档案 ]</span>
+                    {hoveredProfile.name && <span> {hoveredProfile.name}</span>}
+                    {hoveredProfile.formerJob && <span className="profile-job"> · {hoveredProfile.formerJob}</span>}
+                  </>
+                )}
+              </div>
             )}
           </div>
 
-          {/* ===== SKILL BUTTONS (Level 3+ 解锁) ===== */}
-          {save.currentLevel >= 3 && <div className="skill-bar">
-            <button
-              className={`skill-btn ${skillCooldowns.shuffle > 0 ? 'on-cooldown' : ''}`}
-              onClick={useSkillShuffle}
-              disabled={isAnimating || skillCooldowns.shuffle > 0}
-              title="收容突破协议：重组棋盘（消耗2步）"
-            >
-              <span className="skill-icon">🔄</span>
-              <span className="skill-name">收容突破</span>
-              {skillCooldowns.shuffle > 0 && <span className="skill-cd">{skillCooldowns.shuffle}</span>}
-            </button>
-            <button
-              className={`skill-btn ${skillCooldowns.purge > 0 ? 'on-cooldown' : ''}`}
-              onClick={() => !isAnimating && skillCooldowns.purge <= 0 && setSelectingPurgeColor(true)}
-              disabled={isAnimating || skillCooldowns.purge > 0}
-              title="全面清洗协议：消除所选工种全部单位（消耗3步）"
-            >
-              <span className="skill-icon">☢️</span>
-              <span className="skill-name">全面清洗</span>
-            </button>
-            <button
-              className={`skill-btn ${skillCooldowns.extraMoves > 0 ? 'on-cooldown' : ''}`}
-              onClick={useSkillExtraMoves}
-              disabled={skillCooldowns.extraMoves > 0}
-              title="追加派遣令：增加5步操作步数（每关1次）"
-            >
-              <span className="skill-icon">📑</span>
-              <span className="skill-name">追加派遣</span>
-              {skillCooldowns.extraMoves > 0 && <span className="skill-cd">已用</span>}
-            </button>
-          </div>}
+          {/* ── Skills (tight, left-aligned, right under board) ── */}
+          {save.currentLevel >= 3 && (
+            <div className="skill-bar-compact">
+              <button
+                className={`skill-btn-sm ${skillCooldowns.shuffle > 0 ? 'on-cooldown' : ''}`}
+                onClick={useSkillShuffle}
+                disabled={isAnimating || skillCooldowns.shuffle > 0}
+                title="收容突破协议：重组棋盘（消耗2步）"
+              >
+                🔄 突破{skillCooldowns.shuffle > 0 ? ` (${skillCooldowns.shuffle})` : ''}
+              </button>
+              <button
+                className={`skill-btn-sm ${skillCooldowns.purge > 0 ? 'on-cooldown' : ''}`}
+                onClick={() => !isAnimating && skillCooldowns.purge <= 0 && setSelectingPurgeColor(true)}
+                disabled={isAnimating || skillCooldowns.purge > 0}
+                title="全面清洗协议：消除所选工种全部单位（消耗3步）"
+              >
+                ☢️ 清洗
+              </button>
+              <button
+                className={`skill-btn-sm ${skillCooldowns.extraMoves > 0 ? 'on-cooldown' : ''}`}
+                onClick={useSkillExtraMoves}
+                disabled={skillCooldowns.extraMoves > 0}
+                title="追加派遣令：增加5步操作步数（每关1次）"
+              >
+                📑 追加{skillCooldowns.extraMoves > 0 ? ' ✓' : ''}
+              </button>
+            </div>
+          )}
 
           {/* Purge color picker */}
           {selectingPurgeColor && (
@@ -1688,30 +1671,6 @@ function App() {
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* KPI Dashboard */}
-              <div className="panel scp-panel">
-                <div className="panel-header scp-header">
-                  <Shield size={14} /> 运营数据 [受限]
-                </div>
-                <div className="panel-body">
-                  <div className="kpi-grid">
-                    <div className="kpi-item"><div className="kpi-value">{save.dailyConsumed}</div><div className="kpi-label">{getTerm('dailyConsumed', getPhase(save.currentLevel))}</div></div>
-                    <div className="kpi-item"><div className="kpi-value">{save.totalConsumed.toLocaleString()}</div><div className="kpi-label">{getTerm('totalConsumed', getPhase(save.currentLevel))}</div></div>
-                    <div className="kpi-item"><div className="kpi-rating">{lastRating}</div><div className="kpi-label">{getTerm('kpiRatingLabel', getPhase(save.currentLevel))}</div></div>
-                    <div className="kpi-item"><div className="kpi-value">{save.inventoryCount.toLocaleString()}</div><div className="kpi-label">库存余量</div></div>
-                  </div>
-                  <div className="kpi-quota">
-                    <div className="kpi-quota-text"><span>{getTerm('quotaLabel', getPhase(save.currentLevel))}</span><span>{Math.floor(quotaProgress)}%</span></div>
-                    <div className="kpi-quota-bar"><div className="kpi-quota-fill" style={{ width: `${quotaProgress}%` }} /></div>
-                  </div>
-                  {wasteCount > 0 && (
-                    <div className="waste-warning">
-                      资源浪费率：{((wasteCount / Math.max(1, save.dailyConsumed + wasteCount)) * 100).toFixed(0)}% — {wasteCount > 20 ? '⚠️ 严重超标' : '需关注'}
-                    </div>
-                  )}
                 </div>
               </div>
 

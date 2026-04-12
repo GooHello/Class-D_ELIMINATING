@@ -154,7 +154,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 }
 
 /* ========== BATTLE LOG PANEL ========== */
@@ -489,18 +489,28 @@ body {
 }
 
 /* ========== GAME STATUS BAR ========== */
-.game-status {
+/* ========== COMPACT STATUS BAR (above board) ========== */
+.game-status-compact {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 600px;
-  padding: 4px 4px;
-  font-size: 14px;
+  gap: 12px;
+  width: 100%;
+  max-width: 600px;
+  padding: 2px 4px 4px;
+  font-size: 13px;
+  font-family: "Consolas", monospace;
 }
 
 .moves-left {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 18px;
   color: var(--oa-text);
+}
+
+.moves-total {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--oa-text-dim);
 }
 
 .moves-left.low {
@@ -511,23 +521,100 @@ body {
 .combo-display {
   font-weight: 700;
   color: var(--oa-accent);
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.2s;
 }
 
 .combo-display.active {
   color: #f53f3f;
-  transform: scale(1.2);
+  transform: scale(1.1);
 }
 
-/* ========== STATUS BAR (bottom profession flash) ========== */
-.status-bar {
-  width: 600px;
-  height: 12px;
+/* Silent counter inline (in status bar) */
+.silent-counter-inline {
+  margin-left: auto;
+  font-family: "Consolas", monospace;
+}
+
+.silent-number-inline {
+  font-size: 13px;
+  color: var(--oa-text-dim);
+  letter-spacing: 1px;
+}
+
+.silent-milestone-inline {
+  font-size: 10px;
+  color: #f53f3f;
+  margin-left: 6px;
+  animation: flashIn 0.8s ease-in-out forwards;
+}
+
+/* Profile tooltip (floating inside board-container) */
+.profile-tooltip {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.92);
+  border: 1px solid var(--oa-border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--oa-text-dim);
+  font-family: "Consolas", monospace;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.profile-tooltip .profile-id {
+  color: var(--oa-text);
+  font-weight: 600;
+}
+
+.profile-tooltip .profile-job {
+  color: var(--oa-text-dim);
+}
+
+/* ========== COMPACT SKILL BAR ========== */
+.skill-bar-compact {
   display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 600px;
+  justify-content: flex-start;
+  padding: 4px 0 0;
+}
+
+.skill-btn-sm {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  position: relative;
+  gap: 4px;
+  padding: 5px 12px;
+  background: var(--oa-panel);
+  border: 1px solid var(--oa-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  color: var(--oa-text);
+  white-space: nowrap;
+}
+
+.skill-btn-sm:hover:not(:disabled) {
+  background: var(--oa-card-hover);
+  border-color: var(--oa-accent);
+}
+
+.skill-btn-sm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.skill-btn-sm.on-cooldown {
+  color: var(--oa-text-dim);
+  border-style: dashed;
 }
 
 .profession-flash {
@@ -2177,8 +2264,9 @@ body {
   .token-silhouette { font-size: 13px; }
   .token-id { font-size: 5px; }
   .token-work-icon { font-size: 7px; }
-  .game-status, .status-bar, .skill-bar {
+  .game-status-compact, .skill-bar-compact {
     width: 340px;
+    max-width: 340px;
   }
   .header-tabs {
     flex-wrap: wrap;
