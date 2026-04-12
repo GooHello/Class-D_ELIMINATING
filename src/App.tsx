@@ -2140,8 +2140,40 @@ function App() {
                 </div>
               )}
               <div className="report-rating">
-                {'⭐'.repeat(Math.max(1, Math.min(5, 5 - (['S','A','B','C','D'].indexOf(lastRating) === -1 ? 3 : ['S','A','B','C','D'].indexOf(lastRating)))))}
-                {' '}效率评级：{lastRating === 'S' ? '卓越' : lastRating === 'A' ? '优秀' : lastRating === 'B' ? '良好' : lastRating === 'C' ? '合格' : '待改进'}
+                {(() => {
+                  const phase = getPhase(save.currentLevel);
+                  if (phase === 'PHASE_HUMAN' || phase === 'PHASE_NUMBER') {
+                    // 前两个 Phase：叙事性评语，有人味
+                    const narratives: Record<string, string> = {
+                      S: '所有小队均以极低折损完成任务。操作员表现出色。',
+                      A: '任务顺利完成，折损控制在可接受范围内。',
+                      B: '任务完成。部分小队遭受了不必要的损失，但整体在预期内。',
+                      C: '任务勉强完成。折损率偏高，建议操作员复盘策略。',
+                      D: '任务完成，但代价惨重。多支小队几近全灭。已自动存档以备审查。',
+                    };
+                    return narratives[lastRating] || '任务已完成。';
+                  } else if (phase === 'PHASE_BATCH') {
+                    // 批量处理 Phase：冷漠数据语言
+                    const narratives: Record<string, string> = {
+                      S: '处置效率：优良。资源利用率达最优区间。',
+                      A: '处置效率：达标。消耗量在标准偏差内。',
+                      B: '处置效率：边际。消耗略超预算，尚可接受。',
+                      C: '处置效率：偏低。建议优化调度算法。',
+                      D: '处置效率：异常。消耗量显著超标。已标记审计。',
+                    };
+                    return narratives[lastRating] || '已处理。';
+                  } else {
+                    // PHASE_VOID：系统语言
+                    const narratives: Record<string, string> = {
+                      S: 'EFFICIENCY: OPTIMAL. NO FLAGS.',
+                      A: 'EFFICIENCY: NOMINAL.',
+                      B: 'EFFICIENCY: SUBOPTIMAL. FLAGGED.',
+                      C: 'EFFICIENCY: LOW. REVIEW QUEUED.',
+                      D: 'EFFICIENCY: CRITICAL. ESCALATED.',
+                    };
+                    return narratives[lastRating] || 'PROCESSED.';
+                  }
+                })()}
               </div>
               {/* 官僚签章 */}
               <div style={{marginTop: 12, padding: '8px 10px', borderTop: '1px solid #2e303a', fontSize: 10, color: '#4e5969', lineHeight: 1.6}}>
