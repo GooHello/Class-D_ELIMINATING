@@ -816,8 +816,25 @@ body {
 
 /* ========== EMAIL SYSTEM ========== */
 .email-list {
-  max-height: 200px;
+  max-height: 180px;
   overflow-y: auto;
+}
+
+.email-footer-btn {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 12px;
+  font-family: "Consolas", monospace;
+  color: var(--oa-text-dim);
+  border-top: 1px solid var(--oa-border);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--oa-panel);
+}
+
+.email-footer-btn:hover {
+  color: var(--oa-text);
+  background: var(--oa-card-hover);
 }
 
 .email-item {

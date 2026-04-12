@@ -1688,7 +1688,7 @@ function App() {
                       <Lock size={12} style={{verticalAlign:'middle'}} /> 无待处理通信
                     </div>
                   )}
-                  {availableEmails.slice(0, 5).map(email => (
+                  {availableEmails.slice(0, 4).map(email => (
                     <div key={email.id}>
                       <div
                         className={`email-item ${!save.readEmails.includes(email.id) ? 'unread' : ''}`}
@@ -1705,12 +1705,12 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  {availableEmails.length > 5 && (
-                    <div className="email-item" style={{ textAlign: 'center', color: '#86909c', fontSize: 12 }} onClick={() => setShowEmailModal(true)}>
-                      查看全部 {availableEmails.length} 封通信 →
-                    </div>
-                  )}
                 </div>
+                {availableEmails.length > 0 && (
+                  <div className="email-footer-btn" onClick={() => setShowEmailModal(true)}>
+                    🔒 查看全部通信（{availableEmails.length} 封{unreadCount > 0 ? `，${unreadCount} 未读` : ''}）
+                  </div>
+                )}
               </div>
             </>
           )}
