@@ -2107,6 +2107,8 @@ function App() {
                 <div>审批：{save.currentLevel >= 14 ? 'AI审查系统 v4.0（自动）' : save.currentLevel >= 10 ? 'AI审查系统 v3.0（预审通过）' : '伦理委员会（已审阅）'}</div>
                 <div style={{marginTop: 3, color: '#555'}}>
                   {getTerm('disclaimer', getPhase(save.currentLevel))}
+                  所有操作均在授权范围内执行，符合基金会《资源管理条例》第 ██ 条之规定。
+                  操作员对本报告的确认视为对上述内容的知情同意。
                 </div>
               </div>
             </div>
