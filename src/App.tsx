@@ -1414,23 +1414,6 @@ function App() {
           <span>SCP基金会 · Site-██ 人力资源终端</span>
           <span className="scp-version">BUILD 3.7.2</span>
         </div>
-        <div className="header-tabs">
-          {[
-            { id: '工单', icon: '📋' },
-            { id: '设施', icon: '🏗️' },
-            { id: '库存', icon: '📦' },
-            { id: '报表', icon: '📊' },
-            { id: '伦理', icon: '⚖️' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              className={`header-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.icon} {tab.id}
-            </button>
-          ))}
-        </div>
         <div className="header-info">
           <div className="header-info-item">安保许可: ██ | 收容项: ████</div>
           <div className={`header-info-item header-inventory ${save.inventoryCount <= 100 ? 'warning' : ''}`}>
@@ -1631,6 +1614,23 @@ function App() {
 
         {/* ===== INFO PANEL (RIGHT) ===== */}
         <div className={`info-panel ${uiDissolve >= 3 ? 'ui-dissolving' : ''}`}>
+          <div className="panel-tabs">
+            {[
+              { id: '工单', icon: '📋' },
+              { id: '设施', icon: '🏗️' },
+              { id: '库存', icon: '📦' },
+              { id: '报表', icon: '📊' },
+              { id: '伦理', icon: '⚖️' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                className={`panel-tab ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.icon} {tab.id}
+              </button>
+            ))}
+          </div>
 
           {/* ---- TAB: 工单 ---- */}
           {activeTab === '工单' && (

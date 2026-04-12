@@ -67,45 +67,12 @@ body {
   opacity: 0.7;
 }
 
-.header-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--oa-border);
-}
-
-.header-tab {
-  padding: 6px 16px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--oa-text-dim);
-  transition: all 0.15s;
-  border: 1px solid transparent;
-  border-bottom: none;
-  background: transparent;
-  font-family: "Consolas", monospace;
-  position: relative;
-  white-space: nowrap;
-  margin-bottom: -1px;
-}
-
-.header-tab:hover {
-  background: var(--oa-card);
-  color: var(--oa-text);
-}
-
-.header-tab.active {
-  background: var(--oa-panel);
-  color: var(--oa-text);
-  border-color: var(--oa-border);
-  border-bottom: 1px solid var(--oa-panel);
-}
-
-/* 首次进入：下划线闪烁而非蓝色发光 */
+/* Tab hint animation for panel tabs */
 @keyframes tabHint {
   0%, 100% { border-bottom-color: transparent; }
   50% { border-bottom-color: var(--oa-accent); }
 }
-.header-tab:not(.active) {
+.panel-tab:not(.active) {
   animation: tabHint 1.5s ease-in-out 3;
   animation-delay: 2s;
 }
@@ -295,6 +262,43 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ========== PANEL TABS (inside info-panel) ========== */
+.panel-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--oa-border);
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.panel-tab {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: "Consolas", monospace;
+  color: var(--oa-text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.panel-tab:hover {
+  color: var(--oa-text);
+  background: var(--oa-card);
+}
+
+.panel-tab.active {
+  color: var(--oa-text);
+  background: var(--oa-panel);
+  border-color: var(--oa-border);
+  border-bottom: 1px solid var(--oa-panel);
+  margin-bottom: -1px;
+  font-weight: 600;
 }
 
 /* ========== BOARD ========== */
@@ -2280,12 +2284,11 @@ body {
     width: 340px;
     max-width: 340px;
   }
-  .header-tabs {
+  .panel-tabs {
     flex-wrap: wrap;
-    justify-content: center;
   }
-  .header-tab {
-    padding: 6px 12px;
-    font-size: 12px;
+  .panel-tab {
+    padding: 4px 8px;
+    font-size: 11px;
   }
 }
