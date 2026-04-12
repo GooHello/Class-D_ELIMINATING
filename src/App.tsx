@@ -790,7 +790,7 @@ function App() {
       // Invalid swap - just deselect
       setSelected(null);
     }
-  }, [board, selected, isAnimating, showReport, showEthics, showEndingA, showFailed, totalProgress, levelConsumed, save, triggerProfessionFlash, processMatches]);
+  }, [board, selected, isAnimating, showReport, showEthics, showEndingA, showFailed, showAllocation, showSkillNarrative, totalProgress, levelConsumed, save, triggerProfessionFlash, processMatches]);
 
   // ========== LEVEL COMPLETE ==========
   const handleLevelComplete = useCallback((finalProgressValue: number, consumed: number) => {
