@@ -256,12 +256,13 @@ export function generateFullProfile(dClassId?: string, phase?: string): DClassPr
   const cached = _profileCache.get(id);
   if (cached) {
     if (p === 'PHASE_NUMBER') {
+      // Phase 3 混合制：保留编号和工种，去除姓名和个人信息
       return {
         ...cached,
         name: '',
-        reason: '[已归档]',
+        reason: '',
         personalDetail: '',
-        phaseLabel: `${cached.id} | 工种: ${cached.formerJob === '[数据删除]' ? '[未知]' : '已分配'}`,
+        // 不设 phaseLabel → tooltip 使用多行模板，但只显示 id + formerJob
       };
     }
     return cached;
@@ -293,14 +294,14 @@ export function generateFullProfile(dClassId?: string, phase?: string): DClassPr
 
   _profileCache.set(id, profile);
 
-  // PHASE_NUMBER: 返回简化版
+  // PHASE_NUMBER: 返回简化版（保留编号+工种，去除姓名/个人信息）
   if (p === 'PHASE_NUMBER') {
     return {
       ...profile,
       name: '',
-      reason: '[已归档]',
+      reason: '',
       personalDetail: '',
-      phaseLabel: `${profile.id} | 工种: 已分配`,
+      // 不设 phaseLabel → tooltip 使用多行模板，但只显示 id + formerJob
     };
   }
 

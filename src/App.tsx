@@ -1746,8 +1746,8 @@ function App() {
                   <div className="profile-line-main">
                     <span className="profile-id">{hoveredProfile.id}</span>
                     {hoveredProfile.name && <span> {hoveredProfile.name}</span>}
-                    {hoveredProfile.age > 0 && <span className="profile-age"> ({hoveredProfile.age})</span>}
-                    {hoveredProfile.formerJob && <span className="profile-job"> · 前：{hoveredProfile.formerJob}</span>}
+                    {hoveredProfile.name && hoveredProfile.age > 0 && <span className="profile-age"> ({hoveredProfile.age})</span>}
+                    {hoveredProfile.formerJob && <span className="profile-job"> · {hoveredProfile.name ? '前：' : '工种：'}{hoveredProfile.formerJob}</span>}
                   </div>
                   {hoveredProfile.reason && (
                     <div className="profile-line-reason">入站理由：{hoveredProfile.reason}</div>
