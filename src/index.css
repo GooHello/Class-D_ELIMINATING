@@ -565,12 +565,8 @@ body {
   animation: flashIn 0.8s ease-in-out forwards;
 }
 
-/* Profile tooltip (floating inside board-container) */
+/* Profile tooltip (below board, above skills) */
 .profile-tooltip {
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
   background: rgba(30, 30, 30, 0.95);
   border: 1px solid var(--oa-border);
   border-radius: 4px;
@@ -579,10 +575,11 @@ body {
   color: var(--oa-text-dim);
   font-family: "Consolas", monospace;
   white-space: normal;
-  max-width: 520px;
+  max-width: 600px;
+  width: 100%;
   pointer-events: none;
-  z-index: 10;
   line-height: 1.5;
+  margin-top: 4px;
 }
 
 .profile-tooltip .profile-line-main {

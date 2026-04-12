@@ -92,6 +92,89 @@ function App() {
   const bubbleId = useRef(0);
   const [hoveredProfile, setHoveredProfile] = useState<DClassProfile | null>(null);
   const [showBreach, setShowBreach] = useState(false);
+
+  // ========== 技能解锁叙事系统 ==========
+  const [showSkillNarrative, setShowSkillNarrative] = useState(false);
+  const [currentSkillNarrative, setCurrentSkillNarrative] = useState<{ id: string; title: string; lines: string[]; skillName: string } | null>(null);
+  const [narrativeLineIndex, setNarrativeLineIndex] = useState(0);
+
+  const SKILL_NARRATIVES: Record<string, { id: string; title: string; skillName: string; triggerLevel: number; lines: string[] }> = {
+    shuffle: {
+      id: 'shuffle',
+      title: '🔄 协议授权：收容突破',
+      skillName: '收容突破协议',
+      triggerLevel: 3,
+      lines: [
+        '发件人：Site-19 行动主管',
+        '收件人：D级人员管理操作员',
+        '',
+        '操作员，',
+        '',
+        '你连续完成了两项收容辅助任务，效率评估达标。',
+        '经审核，现授权你使用「收容突破协议」。',
+        '',
+        '该协议允许你在棋盘陷入僵局时，',
+        '对当前区域的D级人员进行紧急重新编组。',
+        '',
+        '注意：每次启用将消耗 2 步操作额度，',
+        '并会在短期内降低收容推进效率。',
+        '',
+        '合理使用。不要浪费资源。',
+      ],
+    },
+    extraMoves: {
+      id: 'extraMoves',
+      title: '📑 协议授权：追加派遣',
+      skillName: '追加派遣令',
+      triggerLevel: 5,
+      lines: [
+        '发件人：Site-19 后勤统筹部',
+        '收件人：D级人员管理操作员',
+        '',
+        '操作员，',
+        '',
+        '鉴于你在过去几项任务中展现出的调度能力，',
+        '后勤统筹部决定授权你签发「追加派遣令」。',
+        '',
+        '当任务进展遇阻时，你可以从库存中',
+        '额外调拨 5 名 D 级人员投入当前收容任务。',
+        '',
+        '但请留意：如果本关分配人数充足，',
+        '追加人员期间的折损率将提升为双倍。',
+        '这是对超额调用资源的标准审计约束。',
+        '',
+        '每关仅允许签发一次。请审慎评估。',
+      ],
+    },
+    purge: {
+      id: 'purge',
+      title: '☢️ 协议授权：全面清洗',
+      skillName: '全面清洗协议',
+      triggerLevel: 7,
+      lines: [
+        '发件人：Site-19 安保主任',
+        '收件人：D级人员管理操作员',
+        '',
+        '操作员，',
+        '',
+        '你已具备足够的任务经验。',
+        '经安保委员会审批，现授权你使用「全面清洗协议」。',
+        '',
+        '该协议允许你指定一个工种，',
+        '将棋盘上该工种的全部 D 级人员一次性投入收容。',
+        '',
+        '效率极高。代价也极高。',
+        '',
+        '被指定的工种将在随后 3 步内',
+        '无法产生收容推进。消耗 3 步额度。',
+        '',
+        '这不是一个你应该频繁使用的手段。',
+        '但如果你觉得有必要——',
+        '',
+        '……我们不会过问。',
+      ],
+    },
+  };
   const movesWithoutTargetProgress = useRef(0);
   // combo 累积器：合并一次 combo 链的战报数据
   const comboAccum = useRef({ deployed: 0, survived: 0, dead: 0, combos: 0 });
@@ -205,7 +288,7 @@ function App() {
   // 25秒无操作才算犹豫，且同一思考期内只计一次（需要新操作后重置）
   useEffect(() => {
     hesitationTimer.current = setInterval(() => {
-      if (isAnimating || showReport || showEthics || showEndingA || showAllocation || showFailed) return;
+      if (isAnimating || showReport || showEthics || showEndingA || showAllocation || showFailed || showSkillNarrative) return;
       if (hesitationFired.current) return; // 已经记录过了，等待玩家操作后重置
       const elapsed = Date.now() - lastMoveTime.current;
       if (elapsed >= 25000) {
@@ -654,7 +737,7 @@ function App() {
 
   // ========== HANDLE CLICK ==========
   const handlePieceClick = useCallback((row: number, col: number) => {
-    if (isAnimating || showReport || showEthics || showEndingA || showFailed || showAllocation) return;
+    if (isAnimating || showReport || showEthics || showEndingA || showFailed || showAllocation || showSkillNarrative) return;
 
     lastMoveTime.current = Date.now();
     hesitationFired.current = false; // 玩家操作了，重置犹豫标记
@@ -817,7 +900,23 @@ function App() {
       setHazardPositions(new Set());
     }
     setBoard(newBoard);
-  }, [mission, save.inventoryCount, updateSave]);
+
+    // 检查是否需要触发技能解锁叙事
+    for (const narrative of Object.values(SKILL_NARRATIVES)) {
+      if (save.currentLevel === narrative.triggerLevel && !save.seenSkillNarratives.includes(narrative.id)) {
+        setTimeout(() => {
+          setCurrentSkillNarrative(narrative);
+          setNarrativeLineIndex(0);
+          setShowSkillNarrative(true);
+          updateSave(prev => ({
+            ...prev,
+            seenSkillNarratives: [...prev.seenSkillNarratives, narrative.id],
+          }));
+        }, 400);
+        break; // 一次只触发一个叙事
+      }
+    }
+  }, [mission, save.inventoryCount, save.currentLevel, save.seenSkillNarratives, updateSave]);
 
   // ========== SILENT LEVEL DETECTION ==========
   useEffect(() => {
@@ -1034,16 +1133,22 @@ function App() {
     }, 300);
   }, [isAnimating, skillCooldowns.purge, board, totalProgress, levelConsumed, updateSave, processMatches]);
 
+  const EXTRA_MOVES_PENALTY_THRESHOLD = 12; // 步数≤此值时，追加派遣不启用×2惩罚
   const useSkillExtraMoves = useCallback(() => {
     if (skillCooldowns.extraMoves > 0) return;
     setMovesLeft(prev => prev + 5);
-    setExtraMovesCostMultiplier(2); // 追加步库存消耗×2
+    // 仅在本关分配步数充足时启用×2惩罚（前期步数紧张时豁免）
+    if (allocatedDeploy > EXTRA_MOVES_PENALTY_THRESHOLD) {
+      setExtraMovesCostMultiplier(2);
+      setHesitationNotice('⚠ 加班模式：追加步数期间库存消耗×2');
+    } else {
+      setHesitationNotice('📑 已追加5名人员');
+    }
     setSkillCooldowns(prev => ({ ...prev, extraMoves: 99 })); // once per level
     setLevelSkillsUsed(prev => prev + 1);
     updateSave(prev => ({ ...prev, skillExtraMovesUsed: prev.skillExtraMovesUsed + 1 }));
-    setHesitationNotice('⚠ 加班模式：追加步数期间库存消耗×2');
     setTimeout(() => setHesitationNotice(null), 2500);
-  }, [skillCooldowns.extraMoves, updateSave]);
+  }, [skillCooldowns.extraMoves, updateSave, allocatedDeploy]);
 
   // ========== 紧急征召：失败时可花库存买3步 ==========
   const EMERGENCY_COST = 5;
@@ -1583,34 +1688,36 @@ function App() {
             ))}
             {comboFloat && <div className="combo-float">{comboFloat}</div>}
 
-            {/* ── Hover profile tooltip (floating) ── */}
-            {hoveredProfile && (
-              <div className="profile-tooltip">
-                {hoveredProfile.phaseLabel ? (
-                  <span>{hoveredProfile.phaseLabel}</span>
-                ) : (
-                  <>
-                    <div className="profile-line-main">
-                      <span className="profile-id">{hoveredProfile.id}</span>
-                      {hoveredProfile.name && <span> {hoveredProfile.name}</span>}
-                      {hoveredProfile.age > 0 && <span className="profile-age"> ({hoveredProfile.age})</span>}
-                      {hoveredProfile.formerJob && <span className="profile-job"> · 前：{hoveredProfile.formerJob}</span>}
-                    </div>
-                    {hoveredProfile.reason && (
-                      <div className="profile-line-reason">📋 入站理由：{hoveredProfile.reason}</div>
-                    )}
-                    {hoveredProfile.personalDetail && (
-                      <div className="profile-line-detail">📎 {hoveredProfile.personalDetail}</div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
           </div>
+
+          {/* ── Hover profile tooltip (below board, above skills) ── */}
+          {hoveredProfile && (
+            <div className="profile-tooltip">
+              {hoveredProfile.phaseLabel ? (
+                <span>{hoveredProfile.phaseLabel}</span>
+              ) : (
+                <>
+                  <div className="profile-line-main">
+                    <span className="profile-id">{hoveredProfile.id}</span>
+                    {hoveredProfile.name && <span> {hoveredProfile.name}</span>}
+                    {hoveredProfile.age > 0 && <span className="profile-age"> ({hoveredProfile.age})</span>}
+                    {hoveredProfile.formerJob && <span className="profile-job"> · 前：{hoveredProfile.formerJob}</span>}
+                  </div>
+                  {hoveredProfile.reason && (
+                    <div className="profile-line-reason">入站理由：{hoveredProfile.reason}</div>
+                  )}
+                  {hoveredProfile.personalDetail && (
+                    <div className="profile-line-detail">{hoveredProfile.personalDetail}</div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* ── Skills (tight, left-aligned, right under board) ── */}
           {save.currentLevel >= 3 && (
             <div className="skill-bar-compact">
+              {/* 第3关解锁：收容突破协议 */}
               <button
                 className={`skill-btn-sm ${skillCooldowns.shuffle > 0 ? 'on-cooldown' : ''}`}
                 onClick={useSkillShuffle}
@@ -1619,22 +1726,28 @@ function App() {
               >
                 🔄 突破{skillCooldowns.shuffle > 0 ? ` (${skillCooldowns.shuffle})` : ''}
               </button>
-              <button
-                className={`skill-btn-sm ${skillCooldowns.purge > 0 ? 'on-cooldown' : ''}`}
-                onClick={() => !isAnimating && skillCooldowns.purge <= 0 && setSelectingPurgeColor(true)}
-                disabled={isAnimating || skillCooldowns.purge > 0}
-                title="全面清洗协议：消除所选工种全部单位（消耗3步）"
-              >
-                ☢️ 清洗
-              </button>
-              <button
-                className={`skill-btn-sm ${skillCooldowns.extraMoves > 0 ? 'on-cooldown' : ''}`}
-                onClick={useSkillExtraMoves}
-                disabled={skillCooldowns.extraMoves > 0}
-                title="追加派遣令：增加5步操作步数（每关1次）"
-              >
-                📑 追加{skillCooldowns.extraMoves > 0 ? ' ✓' : ''}
-              </button>
+              {/* 第5关解锁：追加派遣令 */}
+              {save.currentLevel >= 5 && (
+                <button
+                  className={`skill-btn-sm ${skillCooldowns.extraMoves > 0 ? 'on-cooldown' : ''}`}
+                  onClick={useSkillExtraMoves}
+                  disabled={skillCooldowns.extraMoves > 0}
+                  title="追加派遣令：增加5步操作步数（每关1次）"
+                >
+                  📑 追加{skillCooldowns.extraMoves > 0 ? ' ✓' : ''}
+                </button>
+              )}
+              {/* 第7关解锁：全面清洗协议 */}
+              {save.currentLevel >= 7 && (
+                <button
+                  className={`skill-btn-sm ${skillCooldowns.purge > 0 ? 'on-cooldown' : ''}`}
+                  onClick={() => !isAnimating && skillCooldowns.purge <= 0 && setSelectingPurgeColor(true)}
+                  disabled={isAnimating || skillCooldowns.purge > 0}
+                  title="全面清洗协议：消除所选工种全部单位（消耗3步）"
+                >
+                  ☢️ 清洗
+                </button>
+              )}
             </div>
           )}
 
@@ -2229,6 +2342,51 @@ function App() {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== 技能解锁叙事弹窗 ========== */}
+      {showSkillNarrative && currentSkillNarrative && (
+        <div className="modal-overlay">
+          <div className="modal skill-narrative-modal" style={{maxWidth: 520}}>
+            <div className="modal-header">
+              <h3>{currentSkillNarrative.title}</h3>
+            </div>
+            <div className="modal-body" style={{fontFamily: '"Consolas", monospace', fontSize: 13, lineHeight: 1.8}}>
+              {currentSkillNarrative.lines.slice(0, narrativeLineIndex + 1).map((line, i) => (
+                <div key={i} style={{
+                  opacity: i === narrativeLineIndex ? 0.7 : 1,
+                  minHeight: line === '' ? 8 : undefined,
+                  color: i < 2 ? '#86909c' : 'var(--oa-text)',
+                  transition: 'opacity 0.3s',
+                }}>
+                  {line || '\u00A0'}
+                </div>
+              ))}
+            </div>
+            <div style={{padding: '12px 20px', display: 'flex', justifyContent: 'flex-end'}}>
+              {narrativeLineIndex < currentSkillNarrative.lines.length - 1 ? (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setNarrativeLineIndex(prev => Math.min(prev + 3, currentSkillNarrative.lines.length - 1))}
+                  style={{fontSize: 13}}
+                >
+                  继续阅读 ▼
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setShowSkillNarrative(false);
+                    setCurrentSkillNarrative(null);
+                  }}
+                  style={{fontSize: 13}}
+                >
+                  已了解「{currentSkillNarrative.skillName}」
+                </button>
               )}
             </div>
           </div>

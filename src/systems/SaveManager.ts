@@ -34,6 +34,8 @@ export interface GameSave {
   cycleCount: number;
   // 上一周目结局ID
   lastEndingId: string;
+  // 已看过的技能解锁叙事
+  seenSkillNarratives: string[];
 }
 
 const SAVE_KEY = 'dclass_match3_save';
@@ -68,6 +70,7 @@ export const defaultSave: GameSave = {
   purchaseCount: 0,
   cycleCount: 0,
   lastEndingId: '',
+  seenSkillNarratives: [],
 };
 
 export function loadSave(): GameSave {
