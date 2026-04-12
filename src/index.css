@@ -2195,6 +2195,14 @@ body {
   margin: 0 0 4px 0;
 }
 
+.email-sys-line {
+  color: #7eb8da;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  padding: 2px 0;
+  letter-spacing: 0.3px;
+}
+
 .email-modal-empty {
   display: flex;
   align-items: center;

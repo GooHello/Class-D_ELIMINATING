@@ -2507,9 +2507,12 @@ function App() {
                         </div>
                       </div>
                       <div className="email-reader-body">
-                        {displayBody.split('\n').map((line, i) => (
-                          <p key={i}>{line || '\u00A0'}</p>
-                        ))}
+                        {displayBody.split('\n').map((line, i) => {
+                          if (line.startsWith('[SYS]')) {
+                            return <p key={i} className="email-sys-line">{line.replace('[SYS] ', '')}</p>;
+                          }
+                          return <p key={i}>{line || '\u00A0'}</p>;
+                        })}
                       </div>
                     </>
                   );
