@@ -11,7 +11,7 @@ import {
   hasPossibleMoves,
   getColorCounts,
 } from './game/MatchEngine';
-import { getMission, COLOR_HEX, COLOR_EMOJI, type PieceColor, type MissionOrder } from './data/missions';
+import { getMission, COLOR_HEX, COLOR_EMOJI, type PieceColor, type MissionOrder, SQUAD_SIZE } from './data/missions';
 import { emails } from './data/emails';
 import { ethicsReviews, type EthicsReview } from './data/ethics';
 import { achievements, systemBugMessages } from './data/achievements';
@@ -44,7 +44,7 @@ function App() {
   const [mission, setMission] = useState<MissionOrder>(() => getMission(loadSave().currentLevel));
   const [movesLeft, setMovesLeft] = useState(() => {
     const s = loadSave();
-    return s.movesLeftState ?? getMission(s.currentLevel).suggestedDeploy;
+    return s.movesLeftState ?? getMission(s.currentLevel).fixedMoves;
   });
   // 新机制: 总进度 (单一数值)
   const [totalProgress, setTotalProgress] = useState<number>(() => {
@@ -588,13 +588,13 @@ function App() {
         }
       }
 
-      // ========== 新库存逻辑：只有死亡扣库存，存活返还 ==========
+      // ========== 小队制库存逻辑：死亡人数直接从库存扣除 ==========
       const newConsumed = consumed + totalRemoved;
       setLevelConsumed(newConsumed);
 
-      // 追踪本关死亡/存活
-      setLevelDeaths(prev => prev + dead.length);
-      setLevelSurvived(prev => prev + survivors.length);
+      // 追踪本关死亡/存活（人头数，非棋子数）
+      setLevelDeaths(prev => prev + totalDead);
+      setLevelSurvived(prev => prev + totalSurvived);
 
       // 追踪本关各色消除数（用于副目标）
       setLevelColorCounts(prev => {
@@ -609,12 +609,12 @@ function App() {
       if (newCombo > levelMaxCombo) setLevelMaxCombo(newCombo);
 
       updateSave(prev => {
-        // 死亡人数从库存中扣除（已经预扣了分配量，存活的要返还）
-        // extraMovesCostMultiplier > 1 时，死亡额外消耗库存（加班模式惩罚）
-        const extraCost = extraMovesCostMultiplier > 1 ? dead.length * (extraMovesCostMultiplier - 1) : 0;
-        const newInventory = prev.inventoryCount + survivors.length - extraCost; // 存活者返回库存，扣除额外消耗
-        const netDead = dead.length;
-        const newTotal = prev.totalConsumed + netDead; // totalConsumed 只计死亡
+        // 小队制：死亡人数直接从库存扣除（不再有预扣+返还）
+        // extraMovesCostMultiplier > 1 时，死亡额外消耗库存（追加派遣令惩罚）
+        const extraCost = extraMovesCostMultiplier > 1 ? Math.floor(totalDead * (extraMovesCostMultiplier - 1)) : 0;
+        const newInventory = prev.inventoryCount - totalDead - extraCost;
+        const netDead = totalDead;
+        const newTotal = prev.totalConsumed + netDead;
         const newDaily = prev.dailyConsumed + netDead;
 
         if (newTotal >= 100) unlockAchievement('hundred');
@@ -679,29 +679,38 @@ function App() {
 
       setRemovingCells(new Set());
 
-      // === SURVIVAL ROLL (with combo + green buff) ===
+      // === SQUAD SURVIVAL ROLL (小队制: 1棋子 = 1小队 = SQUAD_SIZE人) ===
       const securityLevel = mission?.securityLevel ?? 1;
       const baseCasualtyRate = calculateCasualtyRate(securityLevel, newCombo, greenBuff);
-      const survivors: Piece[] = [];
-      const dead: Piece[] = [];
+      let totalDeployed = 0; // 本次消除投入总人数
+      let totalDead = 0;     // 本次消除死亡总人数
+      let totalSurvived = 0; // 本次消除存活总人数
+      const survivorPieces: Piece[] = []; // 存活的棋子（用于 gravity 回填）
       for (const p of removed) {
-        // Hazard zone pieces face doubled casualty rate (capped at 0.95)
         const casualtyRate = p.hazard ? Math.min(0.95, baseCasualtyRate * 2) : baseCasualtyRate;
-        if (Math.random() > casualtyRate) survivors.push(p);
-        else dead.push(p);
+        // 每个棋子代表一个小队，逐人判定存活
+        let squadDead = 0;
+        for (let i = 0; i < SQUAD_SIZE; i++) {
+          if (Math.random() < casualtyRate) squadDead++;
+        }
+        const squadSurvived = SQUAD_SIZE - squadDead;
+        totalDeployed += SQUAD_SIZE;
+        totalDead += squadDead;
+        totalSurvived += squadSurvived;
+        // 如果小队有任何人存活，棋子可被回填
+        if (squadSurvived > 0) survivorPieces.push(p);
       }
 
       // === ACCUMULATE for combo summary (不再逐次输出) ===
       if (removed.length > 0) {
-        comboAccum.current.deployed += removed.length;
-        comboAccum.current.survived += survivors.length;
-        comboAccum.current.dead += dead.length;
+        comboAccum.current.deployed += totalDeployed;
+        comboAccum.current.survived += totalSurvived;
+        comboAccum.current.dead += totalDead;
         comboAccum.current.combos = newCombo;
       }
 
-
-      // Apply gravity (inject survivors back safely via applyGravity)
-      const filledBoard = applyGravity(newBoard, survivors);
+      // Apply gravity (inject survivor pieces back safely via applyGravity)
+      const filledBoard = applyGravity(newBoard, survivorPieces);
 
       setBoard(filledBoard);
 
@@ -805,13 +814,7 @@ function App() {
       });
     }
 
-    // 返还未使用的步数（人员）回库存
-    if (movesLeft > 0) {
-      updateSave(prev => ({
-        ...prev,
-        inventoryCount: prev.inventoryCount + movesLeft,
-      }));
-    }
+    // 小队制：步数是授权额度，不是人员，完成时不返还库存
 
     // Calculate rating — 基于折损率而非步数效率
     const totalDeployed = levelDeaths + levelSurvived;
@@ -880,16 +883,13 @@ function App() {
   // Keep ref in sync
   handleLevelCompleteRef.current = handleLevelComplete;
 
-  // ========== CONFIRM ALLOCATION (人员调拨确认 — 自动部署) ==========
+  // ========== CONFIRM ALLOCATION (任务简报确认 — 固定步数) ==========
   const confirmAllocation = useCallback(() => {
-    const deploy = Math.min(mission.suggestedDeploy, save.inventoryCount);
-    setMovesLeft(deploy);
-    setAllocatedDeploy(deploy);
-    // 从库存预扣分配量
-    updateSave(prev => ({
-      ...prev,
-      inventoryCount: prev.inventoryCount - deploy,
-    }));
+    // 小队制：步数由任务决定（fixedMoves），不预扣库存
+    const steps = mission.fixedMoves;
+    setMovesLeft(steps);
+    setAllocatedDeploy(steps); // 用于报告显示"授权步数"
+    // 不再预扣库存 — 库存在消除时按死亡人数实时扣除
     setShowAllocation(false);
     // 创建新棋盘（有高危区域时应用）
     let newBoard = createBoard();
@@ -917,7 +917,7 @@ function App() {
         break; // 一次只触发一个叙事
       }
     }
-  }, [mission, save.inventoryCount, save.currentLevel, save.seenSkillNarratives, updateSave]);
+  }, [mission, save.currentLevel, save.seenSkillNarratives, updateSave]);
 
   // ========== SILENT LEVEL DETECTION ==========
   useEffect(() => {
@@ -975,9 +975,9 @@ function App() {
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
 
-    // 显示人员调拨单（而非直接开始）
+    // 显示任务简报
     setShowAllocation(true);
-    setAllocatedDeploy(nextMission.suggestedDeploy);
+    setAllocatedDeploy(nextMission.fixedMoves);
 
     // Create new board, maybe with player piece
     let newBoard = createBoard();
@@ -1062,8 +1062,8 @@ function App() {
     levelHesitationRecovery.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
-    // 重试时重新显示调拨界面
-    setAllocatedDeploy(currentMission.suggestedDeploy);
+    // 重试时重新显示任务简报
+    setAllocatedDeploy(currentMission.fixedMoves);
     setShowAllocation(true);
   }, [save.currentLevel]);
 
@@ -1137,12 +1137,12 @@ function App() {
   const useSkillExtraMoves = useCallback(() => {
     if (skillCooldowns.extraMoves > 0) return;
     setMovesLeft(prev => prev + 5);
-    // 仅在本关分配步数充足时启用×2惩罚（前期步数紧张时豁免）
+    // 仅在本关授权步数充足时启用×2惩罚（前期步数紧张时豁免）
     if (allocatedDeploy > EXTRA_MOVES_PENALTY_THRESHOLD) {
       setExtraMovesCostMultiplier(2);
-      setHesitationNotice('⚠ 加班模式：追加步数期间库存消耗×2');
+      setHesitationNotice('⚠ 追加派遣：追加步数期间折损消耗×2');
     } else {
-      setHesitationNotice('📑 已追加5名人员');
+      setHesitationNotice('📑 已追加5步操作额度');
     }
     setSkillCooldowns(prev => ({ ...prev, extraMoves: 99 })); // once per level
     setLevelSkillsUsed(prev => prev + 1);
@@ -1190,7 +1190,7 @@ function App() {
     const nextLevel = save.currentLevel + 1;
     const nextMission = getMission(nextLevel);
     setMission(nextMission);
-    setMovesLeft(nextMission.suggestedDeploy);
+    setMovesLeft(nextMission.fixedMoves);
     setTotalProgress(0);
     setGreenBuff(0);
     setLevelConsumed(0);
@@ -1203,7 +1203,7 @@ function App() {
     setLevelColorCounts({});
     setEmergencyUsed(false);
     setShowAllocation(true);
-    setAllocatedDeploy(nextMission.suggestedDeploy);
+    setAllocatedDeploy(nextMission.fixedMoves);
 
     let newBoard = createBoard();
     if (nextMission.hazardZones && nextMission.hazardZones > 0) {
@@ -1229,7 +1229,7 @@ function App() {
 
   // Reduce cooldowns after each move
   useEffect(() => {
-    if (movesLeft < (allocatedDeploy || mission?.suggestedDeploy || 99)) {
+    if (movesLeft < (allocatedDeploy || mission?.fixedMoves || 99)) {
       setSkillCooldowns(prev => ({
         shuffle: Math.max(0, prev.shuffle - 1),
         purge: Math.max(0, prev.purge - 1),
@@ -1322,7 +1322,7 @@ function App() {
     // Reset all game state
     const firstMission = getMission(1);
     setMission(firstMission);
-    setMovesLeft(firstMission.suggestedDeploy);
+    setMovesLeft(firstMission.fixedMoves);
     setTotalProgress(0);
     setGreenBuff(0);
     setLevelConsumed(0);
@@ -1349,7 +1349,7 @@ function App() {
     setConsecutiveSRatings(0);
     setSkillCooldowns({ shuffle: 0, purge: 0, extraMoves: 0 });
     setShowAllocation(true);
-    setAllocatedDeploy(firstMission.suggestedDeploy);
+    setAllocatedDeploy(firstMission.fixedMoves);
     setShowSilentLevel(false);
     setEmergencyUsed(false);
     setEmergencyRecruits([]);
@@ -2056,10 +2056,12 @@ function App() {
               {(() => {
                 const phase = getPhase(save.currentLevel);
                 const totalDep = levelDeaths + levelSurvived;
+                const squadCount = levelConsumed; // 消除棋子数 = 派遣小队数
                 const casualtyRate = totalDep > 0 ? (levelDeaths / totalDep * 100).toFixed(1) : '0';
                 const isHighCasualty = totalDep > 0 && levelDeaths / totalDep > 0.5;
                 return (<>
-                  <div className="report-line"><span>{getTerm('deploy', phase)}：</span><span>{allocatedDeploy}（投入 {totalDep}，归还 {movesLeft}）</span></div>
+                  <div className="report-line"><span>授权步数：</span><span>{allocatedDeploy}（剩余 {movesLeft}）</span></div>
+                  <div className="report-line"><span>派遣小队：</span><span>{squadCount} 队（{totalDep} 人投入）</span></div>
                   <div className="report-line"><span>{getTerm('death', phase)} / {getTerm('survive', phase)}：</span>
                     <span>
                       <span style={{color: isHighCasualty ? '#f53f3f' : '#86909c'}}>{levelDeaths}</span>
@@ -2126,7 +2128,7 @@ function App() {
             <div className="modal-header" style={{color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f'}}>📋 {getTerm('missionFailed', getPhase(save.currentLevel))}</div>
             <div className="modal-body">
               <div className="failed-text">
-                <p style={{fontSize: 14, fontWeight: 600}}>{getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '派遣人员已全部投入，实验目标未完成。' : '可用资源已全部投入，工单目标未完成。'}</p>
+                <p style={{fontSize: 14, fontWeight: 600}}>{getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '操作步数已耗尽，实验目标未完成。' : '授权额度已用尽，工单目标未完成。'}</p>
                 <div style={{margin: '10px 0', padding: '8px', background: 'rgba(245,63,63,0.06)', borderRadius: 4, fontSize: 12, lineHeight: 1.8}}>
                   <div>进度：{Math.round((totalProgress / (mission?.targetProgress || 1)) * 100)}% / 100%</div>
                   <div>{getTerm('death', getPhase(save.currentLevel))}：{levelDeaths} {getTerm('unitCounter', getPhase(save.currentLevel))} | {getTerm('survive', getPhase(save.currentLevel))}：{levelSurvived} {getTerm('unitCounter', getPhase(save.currentLevel))}</div>
@@ -2400,16 +2402,15 @@ function App() {
         </div>
       )}
 
-      {/* Allocation Modal (人员调拨单) */}
+      {/* Mission Briefing Modal (任务简报) */}
       {showAllocation && (() => {
-        const actualDeploy = Math.min(mission.suggestedDeploy, save.inventoryCount);
         const secText = '●'.repeat(mission.securityLevel) + '○'.repeat(5 - mission.securityLevel);
-        const insufficientWarning = save.inventoryCount < mission.suggestedDeploy;
+        const lowInventory = save.inventoryCount < 50;
         return (
         <div className="modal-overlay">
           <div className="modal allocation-modal" style={{maxWidth: 480}}>
             <div className="modal-header">
-              <h3>📋 人员调拨通知</h3>
+              <h3>📋 任务简报</h3>
             </div>
             <div className="modal-body">
               <div style={{marginBottom: 12, padding: '10px 12px', background: 'rgba(22,93,255,0.06)', borderRadius: 6}}>
@@ -2428,18 +2429,13 @@ function App() {
               </div>
 
               <div style={{textAlign: 'center', margin: '16px 0', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: 8}}>
-                <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>系统自动调拨</div>
-                <div style={{fontSize: 42, fontWeight: 800, fontFamily: 'Consolas, monospace', color: insufficientWarning ? '#f53f3f' : 'var(--oa-text)'}}>
-                  {actualDeploy}
+                <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>授权操作步数</div>
+                <div style={{fontSize: 42, fontWeight: 800, fontFamily: 'Consolas, monospace', color: 'var(--oa-text)'}}>
+                  {mission.fixedMoves}
                 </div>
                 <div style={{fontSize: 12, color: '#86909c'}}>
-                  人员 → {actualDeploy} 步操作额度
+                  每步消除 = 派遣 1 小队（{SQUAD_SIZE} 人）
                 </div>
-                {insufficientWarning && (
-                  <div style={{fontSize: 11, color: '#f53f3f', marginTop: 6}}>
-                    ⚠ 库存不足！建议 {mission.suggestedDeploy} 人，实际仅可调拨 {save.inventoryCount} 人
-                  </div>
-                )}
               </div>
 
               <div style={{display: 'flex', gap: 8, marginBottom: 10}}>
@@ -2452,8 +2448,8 @@ function App() {
                   <div style={{fontWeight: 600}}>{mission.casualtyEstimate}</div>
                 </div>
                 <div style={{flex: 1, padding: '6px 8px', background: 'rgba(22,93,255,0.04)', borderRadius: 4, fontSize: 11}}>
-                  <div style={{color: '#86909c'}}>{getTerm('postDeployInventory', getPhase(save.currentLevel))}</div>
-                  <div style={{fontWeight: 600, color: (save.inventoryCount - actualDeploy) < 50 ? '#f53f3f' : '#00b42a'}}>{(save.inventoryCount - actualDeploy).toLocaleString()}</div>
+                  <div style={{color: '#86909c'}}>当前库存</div>
+                  <div style={{fontWeight: 600, color: lowInventory ? '#f53f3f' : '#00b42a'}}>{save.inventoryCount.toLocaleString()} 人</div>
                 </div>
               </div>
 
@@ -2477,13 +2473,13 @@ function App() {
                 </div>
               )}
               <div style={{fontSize: 10, color: '#4e5969', padding: '6px 0', borderTop: '1px solid #2e303a', lineHeight: 1.6}}>
-                ⚠ 人员将从库存中预扣。存活者实时返还，未使用者任务结束后归还。<br/>
+                ⚠ 每次消除将派遣小队（{SQUAD_SIZE}人/队）进入收容区域，折损人员从库存扣除。<br/>
                 ⚠ 步数耗尽未完成目标时，可申请一次紧急征召（额外消耗库存）。
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={confirmAllocation} disabled={actualDeploy <= 0} style={{width: '100%'}}>
-                {save.currentLevel >= 16 ? '🤖 已自动批准' : '批准调拨'} ({actualDeploy} 人)
+              <button className="btn btn-primary" onClick={confirmAllocation} style={{width: '100%'}}>
+                {save.currentLevel >= 16 ? '🤖 已自动批准' : '确认出发'} — {mission.fixedMoves} 步
               </button>
             </div>
           </div>
