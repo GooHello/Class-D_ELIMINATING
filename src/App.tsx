@@ -349,6 +349,17 @@ function App() {
 
     if (newCombo >= 5) unlockAchievement('combo_master');
 
+    // 好操作恢复犹豫（每关上限3次）
+    const MAX_RECOVERY_PER_LEVEL = 3;
+    const maxMatchSize_check = Math.max(...matches.map(m => m.positions.length));
+    if ((newCombo >= 2 || maxMatchSize_check >= 4) && levelHesitationRecovery.current < MAX_RECOVERY_PER_LEVEL) {
+      levelHesitationRecovery.current++;
+      updateSave(prev => ({
+        ...prev,
+        hesitationCount: Math.max(0, prev.hesitationCount - 1),
+      }));
+    }
+
     // Mark cells for removal animation
     const toRemoveKeys = new Set<string>();
     let maxMatchSize = 0;
