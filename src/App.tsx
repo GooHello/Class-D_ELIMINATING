@@ -164,7 +164,7 @@ function App() {
   const levelStartTime = useRef(Date.now());
   const levelHesitations = useRef(0);
   const levelHesitationRecovery = useRef(0);
-  const handleLevelCompleteRef = useRef<(finalProgress: Record<PieceColor, number>, consumed: number) => void>(() => {});
+  const handleLevelCompleteRef = useRef<(finalProgress: number, consumed: number) => void>(() => {});
 
   // ========== PERSIST ==========
   const updateSave = useCallback((updater: (prev: GameSave) => GameSave) => {
@@ -226,8 +226,8 @@ function App() {
           if (newCount === 35) {
             setShowPsychModal(true);
           }
-          // 结局F：犹豫达到60次
-          if (newCount >= 60) {
+          // 结局F：犹豫达到50次
+          if (newCount >= 50) {
             setTimeout(() => checkMidgameEndings(), 1000);
           }
 
@@ -332,6 +332,8 @@ function App() {
           freshBoard = stampHazardFlags(freshBoard, hazardPositions);
         }
         setBoard(freshBoard);
+        setHesitationNotice('⚠ 无可用操作，已重新分配人员');
+        setTimeout(() => setHesitationNotice(null), 2500);
       }
       return;
     }
@@ -524,7 +526,9 @@ function App() {
 
       updateSave(prev => {
         // 死亡人数从库存中扣除（已经预扣了分配量，存活的要返还）
-        const newInventory = prev.inventoryCount + survivors.length; // 存活者返回库存
+        // extraMovesCostMultiplier > 1 时，死亡额外消耗库存（加班模式惩罚）
+        const extraCost = extraMovesCostMultiplier > 1 ? dead.length * (extraMovesCostMultiplier - 1) : 0;
+        const newInventory = prev.inventoryCount + survivors.length - extraCost; // 存活者返回库存，扣除额外消耗
         const netDead = dead.length;
         const newTotal = prev.totalConsumed + netDead; // totalConsumed 只计死亡
         const newDaily = prev.dailyConsumed + netDead;
@@ -646,7 +650,7 @@ function App() {
         setCombo(0);
       }
     }, 300);
-  }, [save, updateSave, unlockAchievement, triggerSystemBug, checkLevelComplete, mission, addLogEntry, greenBuff]);
+  }, [save, updateSave, unlockAchievement, triggerSystemBug, checkLevelComplete, mission, addLogEntry, greenBuff, extraMovesCostMultiplier]);
 
   // ========== HANDLE CLICK ==========
   const handlePieceClick = useCallback((row: number, col: number) => {
@@ -1329,24 +1333,32 @@ function App() {
   checkMidgameEndingsRef.current = () => {
     if (showEndingA || showGlitch) return;
 
-    if (save.hesitationCount >= 40) {
+    // 结局E：反复点击禁用选项 ≥ 10 次
+    if (disabledOptionClicks >= 10) {
+      triggerMidgameEndingRef.current('E');
+      return;
+    }
+
+    // 结局F：犹豫累计 ≥ 50 次
+    if (save.hesitationCount >= 50) {
       triggerMidgameEndingRef.current('F');
       return;
     }
 
+    // 结局G：库存耗尽且已补充过多次
     if (save.purchaseCount >= 5 && save.inventoryCount <= 0) {
       triggerMidgameEndingRef.current('G');
       return;
     }
 
+    // 结局H：连续 5 关 S 评级
     if (consecutiveSRatings >= 5) {
       triggerMidgameEndingRef.current('H');
       return;
     }
 
-    const availableEmails = emails.filter(e => e.triggerLevel <= save.currentLevel);
-    const allRead = availableEmails.length > 0 && availableEmails.every(e => save.readEmails.includes(e.id));
-    if (allRead && save.hesitationCount >= 35 && save.currentLevel >= 15) {
+    // 结局I：全面清洗技能使用 ≥ 5 次
+    if (save.skillPurgeUsed >= 5) {
       triggerMidgameEndingRef.current('I');
       return;
     }
@@ -1578,9 +1590,18 @@ function App() {
                   <span>{hoveredProfile.phaseLabel}</span>
                 ) : (
                   <>
-                    <span className="profile-id">{hoveredProfile.id}</span>
-                    {hoveredProfile.name && <span> {hoveredProfile.name}</span>}
-                    {hoveredProfile.formerJob && <span className="profile-job"> · {hoveredProfile.formerJob}</span>}
+                    <div className="profile-line-main">
+                      <span className="profile-id">{hoveredProfile.id}</span>
+                      {hoveredProfile.name && <span> {hoveredProfile.name}</span>}
+                      {hoveredProfile.age > 0 && <span className="profile-age"> ({hoveredProfile.age})</span>}
+                      {hoveredProfile.formerJob && <span className="profile-job"> · 前：{hoveredProfile.formerJob}</span>}
+                    </div>
+                    {hoveredProfile.reason && (
+                      <div className="profile-line-reason">📋 入站理由：{hoveredProfile.reason}</div>
+                    )}
+                    {hoveredProfile.personalDetail && (
+                      <div className="profile-line-detail">📎 {hoveredProfile.personalDetail}</div>
+                    )}
                   </>
                 )}
               </div>

@@ -571,16 +571,22 @@ body {
   bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.92);
+  background: rgba(30, 30, 30, 0.95);
   border: 1px solid var(--oa-border);
   border-radius: 4px;
-  padding: 3px 10px;
+  padding: 6px 12px;
   font-size: 11px;
   color: var(--oa-text-dim);
   font-family: "Consolas", monospace;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 520px;
   pointer-events: none;
   z-index: 10;
+  line-height: 1.5;
+}
+
+.profile-tooltip .profile-line-main {
+  white-space: nowrap;
 }
 
 .profile-tooltip .profile-id {
@@ -588,8 +594,26 @@ body {
   font-weight: 600;
 }
 
+.profile-tooltip .profile-age {
+  color: var(--oa-text-dim);
+  opacity: 0.7;
+}
+
 .profile-tooltip .profile-job {
   color: var(--oa-text-dim);
+}
+
+.profile-tooltip .profile-line-reason {
+  color: #e0a860;
+  font-size: 10.5px;
+  margin-top: 2px;
+}
+
+.profile-tooltip .profile-line-detail {
+  color: #8a8a8a;
+  font-size: 10px;
+  font-style: italic;
+  margin-top: 1px;
 }
 
 /* ========== COMPACT SKILL BAR ========== */

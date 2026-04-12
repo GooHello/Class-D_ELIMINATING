@@ -275,7 +275,15 @@ export function applyGravity(board: Piece[][], survivors?: Piece[]): Piece[][] {
   // Phase 3: Insert survivors with safe color check
   if (survivors && survivors.length > 0) {
     for (const s of survivors) {
-      const col = Math.floor(Math.random() * COLS);
+      // 寻找第一行中为空的列，避免覆盖已有方块
+      const candidates: number[] = [];
+      for (let c = 0; c < COLS; c++) {
+        if (newBoard[0][c] === null) candidates.push(c);
+      }
+      if (candidates.length === 0) continue; // 第一行已满，跳过该 survivor
+
+      // 从空位中随机选一个
+      const col = candidates[Math.floor(Math.random() * candidates.length)];
       const survivorPiece = {
         ...s,
         row: 0,
