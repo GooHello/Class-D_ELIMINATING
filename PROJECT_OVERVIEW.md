@@ -10,8 +10,10 @@
 
 ### 核心设定
 - 玩家扮演 SCP 基金会的 **D 级人员管理操作员**
-- 每个方块代表一名 D 级人员（有编号、职业、前科等随机生成属性）
-- "消除" = 将他们投入 SCP 收容实验 → 会有存活/死亡判定
+- 每个方块代表一个 **小队**（`SQUAD_SIZE = 5` 人），有编号、职业、前科等随机生成属性
+- "消除" = 派遣小队进入 SCP 收容区域 → **逐人存活判定**（每人独立 roll）
+- 步数 = 授权操作额度（`fixedMoves`），由关卡决定，与人员数量脱钩
+- 死亡人员从全局库存中实时扣除（初始库存 200）
 - 关卡推进中，UI 用语从「志愿者」逐步退化为「耗材」→「资源」→ 纯数学符号，迫使玩家审视自身的去敏感化
 
 ### 技术栈
@@ -66,14 +68,23 @@ D:\dclass\
 
 ---
 
-## 3. 核心游戏循环
+## 3. 核心游戏循环（小队制）
 
 ```
-[人员调拨] → [棋盘交互] → [消除判定] → [连锁处理] → [步数耗尽?]
-     ↓              ↓            ↓             ↓              ↓
- 玩家分配步数   点击交换方块   findMatches   processMatches   完成→结算报告
- (allocatedDeploy) (handlePieceClick) (MatchEngine)  (recursive)   失败→重试/紧急征召
+[任务简报] → [棋盘交互] → [消除判定] → [小队存活判定] → [步数耗尽?]
+     ↓              ↓            ↓             ↓                ↓
+ 显示fixedMoves  点击交换方块  findMatches   processMatches    完成→结算报告
+ (mission.fixedMoves)(handlePieceClick)(MatchEngine) (每棋子=5人逐人roll) 失败→重试(-10库存)/紧急征召(-15库存)
 ```
+
+### 3.0 小队制核心公式
+
+- **1 棋子 = 1 小队 = `SQUAD_SIZE`(5) 人**
+- **步数 = `fixedMoves`**（由关卡决定，10-18步）
+- **消除时**：每个被消除棋子的小队中，逐人按 `casualtyRate` 独立判定生死
+- **库存扣除** = 死亡人数（实时扣除，不再有预扣+返还机制）
+- **重试消耗** = `SQUAD_SIZE * 2`（10人）行政消耗
+- **紧急征召** = `SQUAD_SIZE * 3`（15人）换取 3 步
 
 ### 3.1 关键函数调用链
 
@@ -129,7 +140,7 @@ D:\dclass\
 | 状态 | 用途 |
 |------|------|
 | `board` | 9×9 棋盘（`Piece[][]`） |
-| `movesLeft` | 剩余步数（= 剩余可消耗人员） |
+| `movesLeft` | 剩余步数（= 授权操作额度） |
 | `totalProgress` | 当前关卡总进度 |
 | `combo` | 当前连锁数 |
 | `greenBuff` | 绿色累积降低折损率 |
@@ -177,6 +188,17 @@ D:\dclass\
 
 实现位置：`src/data/terminology.ts` → `getPhase(level)` + `getTerm(key, phase)`
 
+### Phase 对 Tooltip（人员档案）的影响
+
+| Phase | Tooltip 显示内容 |
+|-------|-----------------|
+| PHASE_HUMAN | 完整档案：编号 + 姓名 + 年龄 + 前职业 + 入站理由 + 个人细节 |
+| PHASE_NUMBER | 编号 + 工种（无姓名、无个人信息） |
+| PHASE_BATCH | 批次号 + 状态（单行） |
+| PHASE_VOID | `[ 无可用数据 ]`（单行） |
+
+实现位置：`src/data/professions.ts` → `generateFullProfile(dClassId, phase)`
+
 ---
 
 ## 7. 结局系统
@@ -214,15 +236,15 @@ D:\dclass\
 
 ---
 
-## 9. 关卡流转
+## 9. 关卡流转（小队制）
 
 ```
-showAllocation=true  →  玩家确认调拨  →  开始消除
-     ↓                                      ↓
- 分配 deploy 人数                     movesLeft 耗尽
- (min/max/suggested)                       ↓
+showAllocation=true  →  玩家确认任务简报  →  开始消除
+     ↓                                          ↓
+ 显示 fixedMoves 步数                      movesLeft 耗尽
+ (不预扣库存)                                    ↓
                                   进度达标？→ showReport → goNextLevel
-                                  未达标？→ showFailed → retryLevel / 紧急征召
+                                  未达标？→ showFailed → retryLevel(-10库存) / 紧急征召(-15库存+3步)
 ```
 
 每关重置清单（`goNextLevel` / `retryLevel` / `completeSilentLevel`）：
@@ -330,6 +352,43 @@ npx tsc --noEmit     # TypeScript 类型检查
   2. 三处关卡重置函数中添加 `.current = 0`
   3. `processMatches` 的 setTimeout 回调外层包裹 try-catch 安全网
 
+### 2026-04-13: 小队制底层重构（第一性原理大修）
+
+#### #1+#2 小队制系统
+- `missions.ts`: 新增 `fixedMoves` 字段（10-18步/关）+ `SQUAD_SIZE = 5` 常量
+- `SaveManager.ts`: 初始库存 500 → 200
+- `confirmAllocation`: 改用 `fixedMoves` 设步数，不再预扣库存
+- `processMatches`: 1棋子 = 1小队(5人)，逐人存活判定，死亡数直接扣库存
+- `handleLevelComplete`: 删除步数返还库存逻辑
+- 调拨单 UI → 「任务简报」（显示步数而非人数）
+- 报告 UI 展示小队数/投入人数/授权步数
+
+#### #3 人性指数变动反馈
+- 顶栏「心理基线」区域：人性上升→绿色脉冲，下降→红色脉冲（1.5s 渐隐）
+- 实现：`useEffect` 监听 `save.humanityScore` + `useRef` 前值比较
+
+#### #4 死亡重量感视觉反馈
+- 高折损（>40%）时弹出红色死亡气泡（粉色高不透明度底色 `rgba(255,180,180,0.92)`）
+- 高折损消除触发棋盘震动（0.4s shake 动画）
+
+#### #5 叙事性评级系统
+- 报告评级从星星+文字改为 Phase 感知的叙事评语
+- PHASE_HUMAN: 人话（"所有小队均以极低折损完成任务"）
+- PHASE_BATCH: 冷数据（"处置效率：优良"）
+- PHASE_VOID: 系统语言（"EFFICIENCY: OPTIMAL"）
+
+#### #6 资源稀缺性调整
+- 重试消耗 `SQUAD_SIZE*2`(10) 库存
+- 紧急征召 `SQUAD_SIZE*3`(15) 库存
+- 补充量 300-120 → 60-30
+- 顶栏库存警告：≤60 橙色脉冲，≤30 红色 critical 脉冲
+
+#### Tooltip Phase 进化
+- PHASE_HUMAN: 完整档案（姓名+年龄+前职+理由+细节）
+- PHASE_NUMBER: 编号+工种（无姓名/年龄/个人信息）
+- PHASE_BATCH: 批次号+状态
+- PHASE_VOID: `[ 无可用数据 ]`
+
 ---
 
-*最后更新: 2026-04-12*
+*最后更新: 2026-04-13*
