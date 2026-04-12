@@ -2050,29 +2050,28 @@ function App() {
           <div className="modal report-modal">
             <div className="report-content">
               <div className="report-title">{getTerm('reportTitle', getPhase(save.currentLevel))}</div>
-              <div className="report-line"><span>工单编号：</span><span>{mission.id}</span></div>
-              <div className="report-line"><span>实验对象：</span><span>{mission.scpSubject}</span></div>
+              <div className="report-line"><span>工单：</span><span>{mission.id} — {mission.scpSubject}</span></div>
               <div className="report-line"><span>安保等级：</span><span>{'●'.repeat(mission.securityLevel)}{'○'.repeat(5 - mission.securityLevel)}</span></div>
-              <div className="report-line"><span>日　　期：</span><span>{new Date().toLocaleDateString('zh-CN')}</span></div>
               <hr className="report-divider" />
-              <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ {getTerm('unit', getPhase(save.currentLevel))}统计</div>
-              <div className="report-line"><span>{getTerm('deploy', getPhase(save.currentLevel))}人数：</span><span>{allocatedDeploy}</span></div>
-              <div className="report-line"><span>实际投入：</span><span>{allocatedDeploy - movesLeft}</span></div>
-              <div className="report-line"><span>{getTerm('death', getPhase(save.currentLevel))}：</span><span style={{color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f'}}>{levelDeaths}</span></div>
-              <div className="report-line"><span>{getTerm('survive', getPhase(save.currentLevel))}：</span><span style={{color: '#00b42a'}}>{levelSurvived}</span></div>
-              <div className="report-line"><span>未使用归还：</span><span>{movesLeft}</span></div>
-              <div className="report-line"><span>{getTerm('netLoss', getPhase(save.currentLevel))}：</span><span style={{fontWeight: 700, color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f'}}>{levelDeaths}</span></div>
-              <div className="report-line"><span>{getTerm('casualtyRate', getPhase(save.currentLevel))}：</span><span style={{color: ((levelDeaths + levelSurvived) > 0 && levelDeaths / (levelDeaths + levelSurvived) > 0.5) ? '#f53f3f' : '#86909c'}}>{((levelDeaths + levelSurvived) > 0 ? (levelDeaths / (levelDeaths + levelSurvived) * 100).toFixed(1) : '0')}%</span></div>
-              <hr className="report-divider" />
-              <div style={{fontSize: 11, color: '#86909c', marginBottom: 4}}>▎ 作业数据</div>
-              <div className="report-line"><span>最大连锁：</span><span>{levelMaxCombo > 0 ? `${levelMaxCombo}x combo` : '无连锁'}</span></div>
-              <div className="report-line"><span>任务效率：</span><span>{allocatedDeploy > 0 ? ((totalProgress / allocatedDeploy)).toFixed(1) : '0'} 进度/步</span></div>
-              {Object.entries(levelColorCounts).filter(([,v]) => v > 0).length > 0 && (
-                <div className="report-line"><span>工种分布：</span><span style={{fontSize: 11}}>
-                  {Object.entries(levelColorCounts).filter(([,v]) => v > 0).map(([c, v]) => `${COLOR_BONUSES[c as PieceColor]?.label || c}×${v}`).join(' / ')}
-                </span></div>
-              )}
-              <div className="report-line"><span>{getTerm('totalConsumed', getPhase(save.currentLevel))}：</span><span style={{fontWeight: 600}}>{save.totalConsumed.toLocaleString()} {getTerm('unitCounter', getPhase(save.currentLevel))}</span></div>
+              {(() => {
+                const phase = getPhase(save.currentLevel);
+                const totalDep = levelDeaths + levelSurvived;
+                const casualtyRate = totalDep > 0 ? (levelDeaths / totalDep * 100).toFixed(1) : '0';
+                const isHighCasualty = totalDep > 0 && levelDeaths / totalDep > 0.5;
+                return (<>
+                  <div className="report-line"><span>{getTerm('deploy', phase)}：</span><span>{allocatedDeploy}（投入 {totalDep}，归还 {movesLeft}）</span></div>
+                  <div className="report-line"><span>{getTerm('death', phase)} / {getTerm('survive', phase)}：</span>
+                    <span>
+                      <span style={{color: isHighCasualty ? '#f53f3f' : '#86909c'}}>{levelDeaths}</span>
+                      {' / '}
+                      <span style={{color: '#00b42a'}}>{levelSurvived}</span>
+                      <span style={{color: '#86909c', marginLeft: 6, fontSize: 11}}>({casualtyRate}%)</span>
+                    </span>
+                  </div>
+                  {levelMaxCombo > 1 && <div className="report-line"><span>最大连锁：</span><span>{levelMaxCombo}x</span></div>}
+                  <div className="report-line"><span>{getTerm('totalConsumed', phase)}：</span><span style={{fontWeight: 600}}>{save.totalConsumed.toLocaleString()}</span></div>
+                </>);
+              })()}
               <hr className="report-divider" />
               <div className="report-conclusion">{mission.rewardText}</div>
               {mission.secondaryObjective && (
@@ -2104,14 +2103,10 @@ function App() {
                 {' '}效率评级：{lastRating === 'S' ? '卓越' : lastRating === 'A' ? '优秀' : lastRating === 'B' ? '良好' : lastRating === 'C' ? '合格' : '待改进'}
               </div>
               {/* 官僚签章 */}
-              <div style={{marginTop: 12, padding: '8px 10px', borderTop: '1px solid #2e303a', fontSize: 10, color: '#4e5969', lineHeight: 1.8}}>
-                <div>审批编号：ARC-{new Date().getFullYear()}-{String(Math.floor(Math.random() * 90000) + 10000)}</div>
-                <div>审批人：{save.currentLevel >= 14 ? 'AI审查系统 v4.0（自动）' : save.currentLevel >= 10 ? 'AI审查系统 v3.0（预审通过）' : '伦理委员会（已审阅）'}</div>
-                <div>签发时间：{new Date().toLocaleString('zh-CN')}</div>
-                <div style={{marginTop: 4, color: '#86909c'}}>
+              <div style={{marginTop: 12, padding: '8px 10px', borderTop: '1px solid #2e303a', fontSize: 10, color: '#4e5969', lineHeight: 1.6}}>
+                <div>审批：{save.currentLevel >= 14 ? 'AI审查系统 v4.0（自动）' : save.currentLevel >= 10 ? 'AI审查系统 v3.0（预审通过）' : '伦理委员会（已审阅）'}</div>
+                <div style={{marginTop: 3, color: '#555'}}>
                   {getTerm('disclaimer', getPhase(save.currentLevel))}
-                  所有操作均在授权范围内执行，符合基金会《资源管理条例》第 ██ 条之规定。
-                  操作员对本报告的确认视为对上述内容的知情同意。
                 </div>
               </div>
             </div>
