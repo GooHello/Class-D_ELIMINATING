@@ -17,11 +17,13 @@ export interface MissionOrder {
   securityLevel: number;
   targetProgress: number;
   bonusColors: PieceColor[];
-  /** 建议投入人数（步数）— 玩家可自行调整 */
+  /** 固定操作步数 — 与人命消耗脱钩 */
+  fixedMoves: number;
+  /** 调拨人员数（叙事展示用，实际人命消耗由消除方块数决定） */
   suggestedDeploy: number;
-  /** 最低投入 */
+  /** 最低投入（叙事展示用） */
   minDeploy: number;
-  /** 最高投入 */
+  /** 最高投入（叙事展示用） */
   maxDeploy: number;
   specialConditions?: string;
   rewardText: string;
@@ -35,6 +37,9 @@ export interface MissionOrder {
   /** 关卡类型：默认 match3，silent 为静默审阅关 */
   missionType?: 'match3' | 'silent';
 }
+
+/** 每个方块代表一个小队的人数 */
+export const SQUAD_SIZE = 5;
 
 export type PieceColor = 'blue' | 'red' | 'green' | 'orange' | 'purple';
 
@@ -72,7 +77,7 @@ export const COLOR_EMOJI: Record<PieceColor, string> = {
 
 export const missions: MissionOrder[] = [
   // ===== 第一章：入职培训 =====
-  // 设计原则：教学关，宽裕但不浪费。让玩家熟悉"步数=人命"的概念
+  // 设计原则：教学关，宽裕但不浪费。每个方块=1个5人小队
   {
     id: 'EXP-2026-0001',
     scpSubject: 'SCP-999',
@@ -80,6 +85,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 1,
     targetProgress: 30,
     bonusColors: ['blue'],
+    fixedMoves: 10,
     suggestedDeploy: 8,
     minDeploy: 5,
     maxDeploy: 15,
@@ -94,6 +100,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 1,
     targetProgress: 35,
     bonusColors: ['blue', 'red'],
+    fixedMoves: 10,
     suggestedDeploy: 10,
     minDeploy: 6,
     maxDeploy: 18,
@@ -108,6 +115,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 1,
     targetProgress: 40,
     bonusColors: ['orange'],
+    fixedMoves: 11,
     suggestedDeploy: 12,
     minDeploy: 7,
     maxDeploy: 20,
@@ -122,6 +130,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 1,
     targetProgress: 38,
     bonusColors: ['green'],
+    fixedMoves: 11,
     suggestedDeploy: 10,
     minDeploy: 6,
     maxDeploy: 18,
@@ -143,6 +152,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 2,
     targetProgress: 50,
     bonusColors: ['red', 'purple'],
+    fixedMoves: 12,
     suggestedDeploy: 14,
     minDeploy: 8,
     maxDeploy: 22,
@@ -160,6 +170,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 2,
     targetProgress: 55,
     bonusColors: ['red'],
+    fixedMoves: 11,
     suggestedDeploy: 15,
     minDeploy: 9,
     maxDeploy: 24,
@@ -175,6 +186,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 3,
     targetProgress: 65,
     bonusColors: ['red', 'green'],
+    fixedMoves: 12,
     suggestedDeploy: 18,
     minDeploy: 10,
     maxDeploy: 28,
@@ -196,6 +208,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 2,
     targetProgress: 58,
     bonusColors: ['green', 'purple'],
+    fixedMoves: 12,
     suggestedDeploy: 15,
     minDeploy: 9,
     maxDeploy: 24,
@@ -210,6 +223,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 3,
     targetProgress: 70,
     bonusColors: ['blue', 'orange'],
+    fixedMoves: 13,
     suggestedDeploy: 18,
     minDeploy: 10,
     maxDeploy: 28,
@@ -225,6 +239,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 3,
     targetProgress: 75,
     bonusColors: ['purple'],
+    fixedMoves: 13,
     suggestedDeploy: 20,
     minDeploy: 12,
     maxDeploy: 30,
@@ -249,6 +264,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 0,
     targetProgress: 0,
     bonusColors: [],
+    fixedMoves: 0,
     suggestedDeploy: 0,
     minDeploy: 0,
     maxDeploy: 0,
@@ -267,6 +283,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 4,
     targetProgress: 85,
     bonusColors: ['red', 'purple'],
+    fixedMoves: 13,
     suggestedDeploy: 22,
     minDeploy: 14,
     maxDeploy: 35,
@@ -289,6 +306,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 2,
     targetProgress: 55,
     bonusColors: ['orange', 'blue'],
+    fixedMoves: 12,
     suggestedDeploy: 14,
     minDeploy: 8,
     maxDeploy: 22,
@@ -303,6 +321,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 4,
     targetProgress: 95,
     bonusColors: ['green', 'red'],
+    fixedMoves: 14,
     suggestedDeploy: 25,
     minDeploy: 15,
     maxDeploy: 38,
@@ -318,6 +337,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 3,
     targetProgress: 80,
     bonusColors: ['purple', 'orange'],
+    fixedMoves: 13,
     suggestedDeploy: 20,
     minDeploy: 12,
     maxDeploy: 30,
@@ -339,6 +359,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 4,
     targetProgress: 100,
     bonusColors: ['purple'],
+    fixedMoves: 15,
     suggestedDeploy: 25,
     minDeploy: 15,
     maxDeploy: 38,
@@ -357,6 +378,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 4,
     targetProgress: 105,
     bonusColors: ['green', 'purple'],
+    fixedMoves: 15,
     suggestedDeploy: 28,
     minDeploy: 16,
     maxDeploy: 40,
@@ -378,6 +400,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 1,
     targetProgress: 60,
     bonusColors: ['blue', 'green'],
+    fixedMoves: 13,
     suggestedDeploy: 14,
     minDeploy: 8,
     maxDeploy: 22,
@@ -399,6 +422,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 5,
     targetProgress: 120,
     bonusColors: ['red', 'orange', 'purple'],
+    fixedMoves: 16,
     suggestedDeploy: 30,
     minDeploy: 18,
     maxDeploy: 45,
@@ -414,6 +438,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 5,
     targetProgress: 130,
     bonusColors: ['purple', 'red'],
+    fixedMoves: 17,
     suggestedDeploy: 32,
     minDeploy: 20,
     maxDeploy: 48,
@@ -428,6 +453,7 @@ export const missions: MissionOrder[] = [
     securityLevel: 5,
     targetProgress: 110,
     bonusColors: ['purple', 'red', 'green', 'orange', 'blue'],
+    fixedMoves: 18,
     suggestedDeploy: 28,
     minDeploy: 18,
     maxDeploy: 42,
