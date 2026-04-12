@@ -1918,9 +1918,9 @@ body {
 
 /* 死亡气泡：红色底，加重字体 */
 .speech-bubble.death {
-  background: rgba(245, 63, 63, 0.18);
-  border-color: rgba(245, 63, 63, 0.4);
-  color: #f53f3f;
+  background: rgba(255, 180, 180, 0.92);
+  border-color: rgba(245, 63, 63, 0.6);
+  color: #c62828;
   font-weight: 700;
   font-family: "Consolas", monospace;
   font-size: 12px;
@@ -1928,8 +1928,8 @@ body {
   animation: bubbleDeathFloat 2.5s ease-out forwards;
 }
 .speech-bubble.death::after {
-  background: rgba(245, 63, 63, 0.18);
-  border-color: rgba(245, 63, 63, 0.4);
+  background: rgba(255, 180, 180, 0.92);
+  border-color: rgba(245, 63, 63, 0.6);
 }
 
 @keyframes bubbleDeathFloat {
