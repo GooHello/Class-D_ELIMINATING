@@ -113,6 +113,18 @@ body {
   animation: pulse 1s ease-in-out infinite;
 }
 
+.header-inventory.critical {
+  background: rgba(245, 63, 63, 0.25);
+  color: #f53f3f;
+  animation: pulseCritical 0.8s ease-in-out infinite;
+  font-weight: 700;
+}
+
+@keyframes pulseCritical {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(245,63,63,0.3); }
+  50% { opacity: 0.5; box-shadow: 0 0 8px rgba(245,63,63,0.6); }
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }

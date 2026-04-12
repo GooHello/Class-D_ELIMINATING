@@ -670,7 +670,7 @@ function App() {
           }
         }
 
-        if (newInventory <= 80 && prev.inventoryCount > 80) {
+        if (newInventory <= 50 && prev.inventoryCount > 50) {
           setTimeout(() => setShowPurchase(true), 500);
         }
 
@@ -1101,10 +1101,16 @@ function App() {
     levelHesitationRecovery.current = 0;
     lastMoveTime.current = Date.now();
     hesitationFired.current = false;
+    // 重试惩罚：消耗少量库存（重组行政消耗）
+    const retryCost = SQUAD_SIZE * 2; // 10人
+    updateSave(prev => ({
+      ...prev,
+      inventoryCount: Math.max(0, prev.inventoryCount - retryCost),
+    }));
     // 重试时重新显示任务简报
     setAllocatedDeploy(currentMission.fixedMoves);
     setShowAllocation(true);
-  }, [save.currentLevel]);
+  }, [save.currentLevel, updateSave]);
 
   // ========== ACTIVE SKILLS ==========
   // 技能 debuff 状态
@@ -1190,7 +1196,7 @@ function App() {
   }, [skillCooldowns.extraMoves, updateSave, allocatedDeploy]);
 
   // ========== 紧急征召：失败时可花库存买3步 ==========
-  const EMERGENCY_COST = 5;
+  const EMERGENCY_COST = SQUAD_SIZE * 3; // 15人 = 3个小队当量
 
   // Step 1: 生成征召名单，展示确认弹窗
   const requestEmergencyRecruit = useCallback(() => {
@@ -1559,7 +1565,8 @@ function App() {
   // ========== PURCHASE HANDLER ==========
   // 补充量递减：300 → 250 → 200 → 180 → 150 → 120(底线)
   const getPurchaseAmount = useCallback((count: number) => {
-    const amounts = [300, 250, 200, 180, 150, 120];
+    // 小队制下补充量缩减：初始200库存，每次补充60-30
+    const amounts = [60, 50, 45, 40, 35, 30];
     return amounts[Math.min(count, amounts.length - 1)];
   }, []);
 
@@ -1593,7 +1600,7 @@ function App() {
         </div>
         <div className="header-info">
           <div className="header-info-item">安保许可: ██ | 收容项: ████</div>
-          <div className={`header-info-item header-inventory ${save.inventoryCount <= 100 ? 'warning' : ''}`}>
+          <div className={`header-info-item header-inventory ${save.inventoryCount <= 30 ? 'critical' : save.inventoryCount <= 60 ? 'warning' : ''}`}>
             {getTerm('inventory', getPhase(save.currentLevel))}：{save.inventoryCount.toLocaleString()}
           </div>
           <div className="header-info-item header-achievement-btn" onClick={() => setShowAchievements(!showAchievements)} style={{cursor:'pointer'}}>
@@ -1971,7 +1978,7 @@ function App() {
               <div className="panel-header">📦 D级资源库存管理</div>
               <div className="panel-body">
                 <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                  <div style={{ fontSize: 48, fontWeight: 800, color: save.inventoryCount <= 100 ? '#f53f3f' : 'var(--oa-text)' }}>
+                  <div style={{ fontSize: 48, fontWeight: 800, color: save.inventoryCount <= 50 ? '#f53f3f' : save.inventoryCount <= 80 ? '#ff7d00' : 'var(--oa-text)' }}>
                     {save.inventoryCount.toLocaleString()}
                   </div>
                   <div style={{ fontSize: 13, color: '#86909c', marginTop: 4 }}>当前可用库存（单位）</div>
@@ -1981,7 +1988,7 @@ function App() {
                   <div className="report-line"><span>初始配额</span><span>3,000</span></div>
                   <div className="report-line"><span>{getTerm('totalConsumed', getPhase(save.currentLevel))}</span><span style={{ color: getPhase(save.currentLevel) === 'PHASE_HUMAN' ? '#86909c' : '#f53f3f' }}>{save.totalConsumed.toLocaleString()}</span></div>
                   <div className="report-line"><span>累计补充</span><span style={{ color: '#00b42a' }}>{Math.max(0, save.totalConsumed - 500 + save.inventoryCount).toLocaleString()}</span></div>
-                  <div className="report-line"><span>库存状态</span><span>{save.inventoryCount > 300 ? '🟢 充足' : save.inventoryCount > 100 ? '🟡 适中' : '🔴 紧缺'}</span></div>
+                  <div className="report-line"><span>库存状态</span><span>{save.inventoryCount > 120 ? '🟢 充足' : save.inventoryCount > 50 ? '🟡 适中' : '🔴 紧缺'}</span></div>
                 </div>
                 <hr className="report-divider" />
                 <div style={{ fontSize: 13, lineHeight: 2 }}>
@@ -2216,7 +2223,9 @@ function App() {
                   🚨 {getTerm('emergencyRecruit', getPhase(save.currentLevel))}（+3步 / 消耗{getTerm('inventory', getPhase(save.currentLevel))}{EMERGENCY_COST}{getTerm('unitCounter', getPhase(save.currentLevel))}）
                 </button>
               )}
-              <button className="btn btn-primary" onClick={retryLevel} style={{width: '100%'}}>重新派遣</button>
+              <button className="btn btn-primary" onClick={retryLevel} style={{width: '100%'}}>
+                重新派遣（消耗 {SQUAD_SIZE * 2} 库存重组）
+              </button>
             </div>
           </div>
         </div>
