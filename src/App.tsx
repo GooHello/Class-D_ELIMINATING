@@ -2348,7 +2348,7 @@ function App() {
         </div>
       )}
 
-      {/* ========== 技能解锁叙事弹窗 ========== */}
+      {/* ========== 技能解锁叙事弹窗（两步交互） ========== */}
       {showSkillNarrative && currentSkillNarrative && (
         <div className="modal-overlay">
           <div className="modal skill-narrative-modal" style={{maxWidth: 520}}>
@@ -2356,25 +2356,35 @@ function App() {
               <h3>{currentSkillNarrative.title}</h3>
             </div>
             <div className="modal-body" style={{fontFamily: '"Consolas", monospace', fontSize: 13, lineHeight: 1.8}}>
-              {currentSkillNarrative.lines.slice(0, narrativeLineIndex + 1).map((line, i) => (
-                <div key={i} style={{
-                  opacity: i === narrativeLineIndex ? 0.7 : 1,
-                  minHeight: line === '' ? 8 : undefined,
-                  color: i < 2 ? '#86909c' : 'var(--oa-text)',
-                  transition: 'opacity 0.3s',
-                }}>
-                  {line || '\u00A0'}
+              {narrativeLineIndex === 0 ? (
+                /* 第一步：摘要预览 */
+                <div style={{color: '#86909c'}}>
+                  <div>{currentSkillNarrative.lines[0]}</div>
+                  <div>{currentSkillNarrative.lines[1]}</div>
+                  <div style={{marginTop: 12, color: 'var(--oa-text-dim)', fontStyle: 'italic'}}>
+                    你收到了一份新的协议授权通知……
+                  </div>
                 </div>
-              ))}
+              ) : (
+                /* 第二步：完整文本 */
+                currentSkillNarrative.lines.map((line, i) => (
+                  <div key={i} style={{
+                    minHeight: line === '' ? 8 : undefined,
+                    color: i < 2 ? '#86909c' : 'var(--oa-text)',
+                  }}>
+                    {line || '\u00A0'}
+                  </div>
+                ))
+              )}
             </div>
             <div style={{padding: '12px 20px', display: 'flex', justifyContent: 'flex-end'}}>
-              {narrativeLineIndex < currentSkillNarrative.lines.length - 1 ? (
+              {narrativeLineIndex === 0 ? (
                 <button
                   className="btn btn-ghost"
-                  onClick={() => setNarrativeLineIndex(prev => Math.min(prev + 3, currentSkillNarrative.lines.length - 1))}
+                  onClick={() => setNarrativeLineIndex(1)}
                   style={{fontSize: 13}}
                 >
-                  继续阅读 ▼
+                  查看详情 →
                 </button>
               ) : (
                 <button
