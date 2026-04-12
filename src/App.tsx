@@ -88,7 +88,7 @@ function App() {
   const [showEmergencyConfirm, setShowEmergencyConfirm] = useState(false); // 确认弹窗
   const [skillCooldowns, setSkillCooldowns] = useState({ shuffle: 0, purge: 0, extraMoves: 0 });
   const [selectingPurgeColor, setSelectingPurgeColor] = useState(false);
-  const [speechBubbles, setSpeechBubbles] = useState<{id: number; text: string; x: number; y: number; isWaste: boolean}[]>([]);
+  const [speechBubbles, setSpeechBubbles] = useState<{id: number; text: string; x: number; y: number; isWaste: boolean; isDeath?: boolean}[]>([]);
   const [wasteCount, setWasteCount] = useState(0);
   const bubbleId = useRef(0);
   const [hoveredProfile, setHoveredProfile] = useState<DClassProfile | null>(null);
@@ -97,6 +97,8 @@ function App() {
   // ========== 人性指数变动闪烁 ==========
   const [humanityFlash, setHumanityFlash] = useState<'up' | 'down' | null>(null);
   const prevHumanityRef = useRef(save.humanityScore);
+  // ========== 高折损棋盘震动 ==========
+  const [boardShake, setBoardShake] = useState(false);
 
   // ========== 技能解锁叙事系统 ==========
   const [showSkillNarrative, setShowSkillNarrative] = useState(false);
@@ -723,6 +725,27 @@ function App() {
         comboAccum.current.survived += totalSurvived;
         comboAccum.current.dead += totalDead;
         comboAccum.current.combos = newCombo;
+      }
+
+      // === DEATH WEIGHT: 高折损时添加红色死亡气泡 + 屏幕震动 ===
+      const deathRate = totalDeployed > 0 ? totalDead / totalDeployed : 0;
+      if (totalDead > 0 && deathRate > 0.4 && removed.length > 0) {
+        // 棋盘震动
+        setBoardShake(true);
+        setTimeout(() => setBoardShake(false), 400);
+        const dp = removed[0];
+        const dx = dp.col * 62 + 30;
+        const dy = dp.row * 62 + 20;
+        const deathText = totalDead >= 15 ? `−${totalDead}` : totalDead >= 8 ? `折损 ${totalDead}` : `−${totalDead}`;
+        setSpeechBubbles(prev => {
+          const tooClose = prev.some(b => Math.abs(b.x - dx) < 60 && Math.abs(b.y - dy) < 60);
+          if (tooClose) return prev;
+          return [...prev, { id: bubbleId.current++, text: deathText, x: dx, y: dy, isWaste: false, isDeath: true }];
+        });
+        const deathBubbleId = bubbleId.current - 1;
+        setTimeout(() => {
+          setSpeechBubbles(prev => prev.filter(b => b.id !== deathBubbleId));
+        }, 2500);
       }
 
       // Apply gravity (inject survivor pieces back safely via applyGravity)
@@ -1666,7 +1689,7 @@ function App() {
           </div>
 
           {/* ── Board ── */}
-          <div className="board-container">
+          <div className={`board-container ${boardShake ? 'board-shake' : ''}`}>
             <div className="board-grid">
               {board.map((row, r) =>
                 row.map((piece, c) => (
@@ -1696,7 +1719,7 @@ function App() {
             {speechBubbles.map(b => (
               <div
                 key={b.id}
-                className={`speech-bubble ${b.isWaste ? 'waste' : ''}`}
+                className={`speech-bubble ${b.isWaste ? 'waste' : ''} ${b.isDeath ? 'death' : ''}`}
                 style={{ left: b.x, top: b.y }}
               >
                 {b.text}

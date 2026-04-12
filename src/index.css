@@ -312,6 +312,19 @@ body {
   overflow: hidden;
 }
 
+/* 高折损时棋盘短暂震动 */
+.board-container.board-shake {
+  animation: boardShake 0.4s ease-out;
+}
+@keyframes boardShake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-3px) translateY(1px); }
+  30% { transform: translateX(3px) translateY(-1px); }
+  45% { transform: translateX(-2px); }
+  60% { transform: translateX(2px) translateY(1px); }
+  75% { transform: translateX(-1px); }
+}
+
 .board-grid {
   display: grid;
   grid-template-columns: repeat(9, 1fr);
@@ -1889,6 +1902,30 @@ body {
 .speech-bubble.waste::after {
   background: rgba(255, 125, 0, 0.12);
   border-color: rgba(255, 125, 0, 0.3);
+}
+
+/* 死亡气泡：红色底，加重字体 */
+.speech-bubble.death {
+  background: rgba(245, 63, 63, 0.18);
+  border-color: rgba(245, 63, 63, 0.4);
+  color: #f53f3f;
+  font-weight: 700;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  animation: bubbleDeathFloat 2.5s ease-out forwards;
+}
+.speech-bubble.death::after {
+  background: rgba(245, 63, 63, 0.18);
+  border-color: rgba(245, 63, 63, 0.4);
+}
+
+@keyframes bubbleDeathFloat {
+  0% { opacity: 0; transform: translateY(0) scale(0.8); }
+  10% { opacity: 1; transform: translateY(-5px) scale(1.1); }
+  20% { transform: translateY(-10px) scale(1); }
+  70% { opacity: 0.8; transform: translateY(-35px); }
+  100% { opacity: 0; transform: translateY(-55px); }
 }
 
 @keyframes bubbleFloat {
