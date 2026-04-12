@@ -201,13 +201,13 @@ function App() {
   }, []);
 
   // ========== HESITATION TRACKER ==========
-  // 15秒无操作才算犹豫，且同一思考期内只计一次（需要新操作后重置）
+  // 25秒无操作才算犹豫，且同一思考期内只计一次（需要新操作后重置）
   useEffect(() => {
     hesitationTimer.current = setInterval(() => {
-      if (isAnimating || showReport || showEthics || showEndingA) return;
+      if (isAnimating || showReport || showEthics || showEndingA || showAllocation || showFailed) return;
       if (hesitationFired.current) return; // 已经记录过了，等待玩家操作后重置
       const elapsed = Date.now() - lastMoveTime.current;
-      if (elapsed >= 15000) {
+      if (elapsed >= 25000) {
         hesitationFired.current = true; // 标记：本次思考期已记录
         levelHesitations.current++;
         updateSave(prev => {
@@ -217,16 +217,16 @@ function App() {
           if (newCount === 1) {
             unlockAchievement('hesitated');
           }
-          if (newCount === 8) {
+          if (newCount === 15) {
             const aiHesMsg = getAIComment(save.currentLevel, 'hesitation') || '检测到操作延迟，已记录。';
             setHesitationNotice(aiHesMsg);
             setTimeout(() => setHesitationNotice(null), 3000);
           }
-          if (newCount === 20) {
+          if (newCount === 35) {
             setShowPsychModal(true);
           }
-          // 结局F：犹豫达到40次
-          if (newCount >= 40) {
+          // 结局F：犹豫达到60次
+          if (newCount >= 60) {
             setTimeout(() => checkMidgameEndings(), 1000);
           }
 
@@ -1325,7 +1325,7 @@ function App() {
 
     const availableEmails = emails.filter(e => e.triggerLevel <= save.currentLevel);
     const allRead = availableEmails.length > 0 && availableEmails.every(e => save.readEmails.includes(e.id));
-    if (allRead && save.hesitationCount >= 20 && save.currentLevel >= 10) {
+    if (allRead && save.hesitationCount >= 35 && save.currentLevel >= 15) {
       triggerMidgameEndingRef.current('I');
       return;
     }
