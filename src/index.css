@@ -213,7 +213,6 @@ body {
 
 .battle-log-empty {
   color: var(--oa-text-dim);
-  font-style: italic;
   font-size: 12px;
   text-align: center;
   padding: 28px 10px;
@@ -269,7 +268,6 @@ body {
 .log-cause {
   color: #f53f3f;
   font-size: 10px;
-  font-style: italic;
   margin-top: 2px;
   opacity: 0.8;
 }
@@ -759,7 +757,7 @@ body {
   line-height: 1.8;
   color: #b8b4ac;
   white-space: pre-wrap;
-  font-family: "SimSun", "Noto Serif CKJ SC", serif;
+  font-family: "Consolas", "Courier New", monospace;
   background: var(--oa-card);
   border-top: 1px solid var(--oa-border);
 }
@@ -1892,17 +1890,15 @@ body {
 }
 
 .profile-panel .profile-detail {
-  color: #586069;
+  color: #908c84;
   font-size: 11px;
-  font-style: italic;
   margin-top: 4px;
   border-top: 1px dashed #2e303a;
   padding-top: 4px;
 }
 
 .profile-empty {
-  color: #586069;
-  font-style: italic;
+  color: #908c84;
 }
 
 .profile-phase-label {

@@ -1489,7 +1489,7 @@ function App() {
                   );
                 })()}
                 {(entry as any).type === 'system' && (
-                  <div className="log-detail" style={{color: '#ab47bc', fontSize: 12, fontStyle: 'italic'}}>
+                  <div className="log-detail" style={{color: '#ab47bc', fontSize: 12}}>
                     {entry.scpName}: {entry.detail}
                   </div>
                 )}
@@ -1991,7 +1991,7 @@ function App() {
                 <div>审批编号：ARC-{new Date().getFullYear()}-{String(Math.floor(Math.random() * 90000) + 10000)}</div>
                 <div>审批人：{save.currentLevel >= 14 ? 'AI审查系统 v4.0（自动）' : save.currentLevel >= 10 ? 'AI审查系统 v3.0（预审通过）' : '伦理委员会（已审阅）'}</div>
                 <div>签发时间：{new Date().toLocaleString('zh-CN')}</div>
-                <div style={{marginTop: 4, fontStyle: 'italic', color: '#3a3d49'}}>
+                <div style={{marginTop: 4, color: '#86909c'}}>
                   {getTerm('disclaimer', getPhase(save.currentLevel))}
                   所有操作均在授权范围内执行，符合基金会《资源管理条例》第 ██ 条之规定。
                   操作员对本报告的确认视为对上述内容的知情同意。
@@ -2070,7 +2070,7 @@ function App() {
                             前职：{recruit.formerJob}
                           </div>
                           {recruit.personalDetail && (
-                            <div style={{ color: '#c9cdd4', fontSize: 11, fontStyle: 'italic' }}>
+                            <div style={{ color: '#908c84', fontSize: 11 }}>
                               "{recruit.personalDetail}"
                             </div>
                           )}
@@ -2159,7 +2159,7 @@ function App() {
                         <div style={{ color: '#86909c', fontSize: 11 }}>前职：{profile.formerJob}</div>
                         <div style={{ color: '#f53f3f', fontSize: 11, opacity: 0.7 }}>处置原因：{cause}</div>
                         {profile.personalDetail && (
-                          <div style={{ color: '#333', fontSize: 10, fontStyle: 'italic', marginTop: 2 }}>
+                          <div style={{ color: '#7a7670', fontSize: 10, marginTop: 2 }}>
                             "{profile.personalDetail}"
                           </div>
                         )}
